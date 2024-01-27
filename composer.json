@@ -1,0 +1,25 @@
+{
+    "name": "omarchouman/lara-util-x",
+    "description": "Utility package",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "omarchouman",
+            "email": "omar.chouman0@gmail.com"
+        }
+    ],
+    "minimum-stability": "dev",
+    "require": {},
+    "autoload": {
+        "psr-4": {
+            "omarchouman\\LaraUtilX\\": "src"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "omarchouman\\LaraUtilX\\LaraUtilXServiceProvider"
+            ]
+        }
+    }
+}
