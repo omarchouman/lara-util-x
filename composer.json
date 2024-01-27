@@ -2,6 +2,7 @@
     "name": "omarchouman/lara-util-x",
     "description": "Utility package",
     "license": "MIT",
+    "version": "1.0.0",
     "authors": [
         {
             "name": "omarchouman",
