@@ -9,6 +9,7 @@ use omarchouman\LaraUtilX\Traits\ApiResponseTrait;
 use omarchouman\LaraUtilX\Traits\FileProcessingTrait;
 use omarchouman\LaraUtilX\Utilities\CachingUtil;
 use omarchouman\LaraUtilX\Utilities\ConfigUtil;
+use omarchouman\LaraUtilX\Utilities\FeatureToggleUtil;
 use omarchouman\LaraUtilX\Utilities\FilteringUtil;
 use omarchouman\LaraUtilX\Utilities\PaginationUtil;
 use omarchouman\LaraUtilX\Utilities\QueryParameterUtil;
@@ -33,10 +34,14 @@ class LaraUtilXServiceProvider extends ServiceProvider
         // Load migrations
         $this->loadMigrationsFrom(__DIR__ . '/../database/migrations');
 
-        // Publish config
+        // Publish configs
         $this->publishes([
             __DIR__ . '/../config/lara-util-x.php' => config_path('lara-util-x.php'),
         ], 'lara-util-x-config');
+
+        $this->publishes([
+            __DIR__ . '/../config/feature-toggles.php' => config_path('feature-toggles.php'),
+        ], 'lara-util-x-feature-toggles');
 
         $this->mergeConfigFrom(__DIR__ . '/../config/lara-util-x.php', 'lara-util-x');
 
@@ -75,6 +80,7 @@ class LaraUtilXServiceProvider extends ServiceProvider
             RateLimiterUtil::class,
             PaginationUtil::class,
             FilteringUtil::class,
+            FeatureToggleUtil::class
         ];
 
         $this->loadUtilityClasses($classes);
