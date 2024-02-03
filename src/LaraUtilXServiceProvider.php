@@ -31,6 +31,11 @@ class LaraUtilXServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // Publish Service Provider
+        $this->publishes([
+            __DIR__ . '/LaraUtilXServiceProvider.php' => app_path('Providers/LaraUtilXServiceProvider.php'),
+        ], 'lara-util-x');
+
         // Load migrations
         $this->loadMigrationsFrom(__DIR__ . '/../database/migrations');
 
