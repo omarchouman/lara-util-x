@@ -11,6 +11,7 @@ use omarchouman\LaraUtilX\Utilities\CachingUtil;
 use omarchouman\LaraUtilX\Utilities\ConfigUtil;
 use omarchouman\LaraUtilX\Utilities\FeatureToggleUtil;
 use omarchouman\LaraUtilX\Utilities\FilteringUtil;
+use omarchouman\LaraUtilX\Utilities\LoggingUtil;
 use omarchouman\LaraUtilX\Utilities\PaginationUtil;
 use omarchouman\LaraUtilX\Utilities\QueryParameterUtil;
 use omarchouman\LaraUtilX\Utilities\RateLimiterUtil;
@@ -76,6 +77,7 @@ class LaraUtilXServiceProvider extends ServiceProvider
         $this->publishUtility('RateLimiterUtil', 'rate-limiter');
         $this->publishUtility('PaginationUtil', 'paginator');
         $this->publishUtility('FilteringUtil', 'filtering');
+        $this->publishUtility('LoggingUtil', 'logging');
 
         // Load utilities
         $classes = [
@@ -85,7 +87,8 @@ class LaraUtilXServiceProvider extends ServiceProvider
             RateLimiterUtil::class,
             PaginationUtil::class,
             FilteringUtil::class,
-            FeatureToggleUtil::class
+            FeatureToggleUtil::class,
+            LoggingUtil::class
         ];
 
         $this->loadUtilityClasses($classes);
