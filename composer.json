@@ -2,7 +2,7 @@
     "name": "omarchouman/lara-util-x",
     "description": "LaraUtilX is a comprehensive Laravel package that empowers developers with a rich set of utilities, helpful traits, middleware, and more. Streamline common tasks, enhance code readability, and boost the functionality of your Laravel applications with this versatile toolkit.",
     "license": "MIT",
-    "version": "1.0.3",
+    "version": "1.0.4",
     "authors": [
         {
             "name": "omarchouman",
