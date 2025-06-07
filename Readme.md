@@ -2,6 +2,14 @@
 
 LaraUtilX is a comprehensive Laravel package designed to supercharge your development experience by providing a suite of utility classes, helpful traits, middleware, and more. Whether you're a seasoned Laravel developer or just getting started, LaraUtilX offers a collection of tools to streamline common tasks and enhance the functionality of your Laravel applications.
 
+---
+
+📘 **Full Documentation**  
+Explore full usage examples, configuration options, and best practices at:  
+👉 [https://larautilx.omarchouman.com](https://larautilx.omarchouman.com)
+
+---
+
 ## Key Features
 
 1. **CrudController:** Simplify your CRUD operations with the generic `CrudController` that can be easily extended, allowing you to create, read, update, and delete records effortlessly.
