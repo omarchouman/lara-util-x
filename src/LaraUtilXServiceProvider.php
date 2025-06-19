@@ -25,6 +25,20 @@ class LaraUtilXServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->bind('AccessLog', AccessLog::class);
+        
+        // Register OpenAI Provider
+        $this->app->bind(OpenAIProviderInterface::class, function ($app) {
+            return new OpenAIProvider(
+                apiKey: config('lara-util-x.openai.api_key'),
+                maxRetries: config('lara-util-x.openai.max_retries', 3),
+                retryDelay: config('lara-util-x.openai.retry_delay', 2)
+            );
+        });
+
+        // Register base LLM Provider interface
+        $this->app->bind(LLMProviderInterface::class, function ($app) {
+            return $app->make(OpenAIProviderInterface::class);
+        });
     }
 
     /**

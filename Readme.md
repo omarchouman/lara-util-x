@@ -32,6 +32,8 @@ Explore full usage examples, configuration options, and best practices at:
     
 10. **ConfigUtil:** Manage your Laravel configuration settings effortlessly with the `ConfigUtil`. Retrieve, set defaults, and dynamically manipulate configuration data. Simplify the way you interact with your application's configuration, ensuring a clean and organized approach.
 
+11. **OpenAIProvider:** Effortlessly integrate advanced AI-powered chat completions into your Laravel application with the OpenAIProvider. This provider implements a standardized interface for interacting with OpenAI’s GPT models, supporting all major chat parameters, automatic retry logic, and structured responses. Generate dynamic, context-aware text completions for your users with just a few lines of code.
+
 ## How to Get Started
 
 1. Install LaraUtilX using Composer:
