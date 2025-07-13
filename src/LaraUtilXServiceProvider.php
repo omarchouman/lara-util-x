@@ -60,6 +60,15 @@ class LaraUtilXServiceProvider extends ServiceProvider
                 retryDelay: (int) config('lara-util-x.openai.retry_delay', 2)
             );
         });
+
+        // Register base LLM Provider interface
+        $this->app->bind(LLMProviderInterface::class, function ($app) {
+            return $app->make(OpenAIProviderInterface::class);
+        });
+
+        $this->app->singleton('xhelper', function () {
+            return new XHelper();
+        });
     }
 
     /**
