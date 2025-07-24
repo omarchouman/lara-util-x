@@ -27,4 +27,19 @@ class PaginationUtil
 
         return $paginator;
     }
+
+    /**
+     * Paginate an Eloquent or Query Builder instance.
+     *
+     * @param \Illuminate\Database\Query\Builder|\Illuminate\Database\Eloquent\Builder $query
+     * @param int $perPage
+     * @param int|null $page
+     * @param array $options
+     * @return \Illuminate\Contracts\Pagination\LengthAwarePaginator
+     */
+    public static function paginateQuery($query, int $perPage, ?int $page = null, array $options = [])
+    {
+        $page = $page ?: (request()->input('page', 1));
+        return $query->paginate($perPage, ['*'], 'page', $page)->appends($options);
+    }
 }
