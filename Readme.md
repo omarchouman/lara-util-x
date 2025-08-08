@@ -1,5 +1,9 @@
 # LaraUtilX: Unleash the Power of Laravel with Utilities and Helpers
 
+<div align="center">
+  <img src="assets/LaraUtilX.svg" alt="LaraUtilX Logo" width="200" height="200">
+</div>
+
 LaraUtilX is a comprehensive Laravel package designed to supercharge your development experience by providing a suite of utility classes, helpful traits, middleware, and more. Whether you're a seasoned Laravel developer or just getting started, LaraUtilX offers a collection of tools to streamline common tasks and enhance the functionality of your Laravel applications.
 
 ---
