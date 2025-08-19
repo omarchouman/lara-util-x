@@ -6,6 +6,26 @@ return [
         'default_tags' => [],
     ],
 
+    'rate_limiting' => [
+        'default_max_attempts' => 60,
+        'default_decay_minutes' => 1,
+        'cache_prefix' => 'rate_limit:',
+        'defaults' => [
+            'api' => [
+                'max_attempts' => 60,
+                'decay_minutes' => 1,
+            ],
+            'auth' => [
+                'max_attempts' => 5,
+                'decay_minutes' => 15,
+            ],
+            'download' => [
+                'max_attempts' => 3,
+                'decay_minutes' => 1,
+            ],
+        ],
+    ],
+
     'openai' => [
         'api_key' => env('OPENAI_API_KEY'),
         'max_retries' => env('OPENAI_MAX_RETRIES', 3),

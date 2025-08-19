@@ -136,9 +136,13 @@ class LaraUtilXServiceProvider extends ServiceProvider
     private function loadUtilityClasses(array $classes)
     {
         foreach ($classes as $class) {
-            $this->app->bind($class, function () use ($class) {
-                return new $class();
-            });
+            if ($class === RateLimiterUtil::class) {
+                $this->loadRateLimiterUtility();
+            } else {
+                $this->app->bind($class, function () use ($class) {
+                    return new $class();
+                });
+            }
         }
     }
 
@@ -151,6 +155,16 @@ class LaraUtilXServiceProvider extends ServiceProvider
 
         $this->app->bind(CachingUtil::class, function () use ($config) {
             return new CachingUtil($config['default_expiration'], $config['default_tags']);
+        });
+    }
+
+    /**
+     * Load the rate limiter utility with dependency injection.
+     */
+    private function loadRateLimiterUtility()
+    {
+        $this->app->bind(RateLimiterUtil::class, function ($app) {
+            return new RateLimiterUtil($app->make('cache.store'));
         });
     }
 
