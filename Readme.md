@@ -36,13 +36,19 @@ Explore full usage examples, configuration options, and best practices at:
     
 10. **ConfigUtil:** Manage your Laravel configuration settings effortlessly with the `ConfigUtil`. Retrieve, set defaults, and dynamically manipulate configuration data. Simplify the way you interact with your application's configuration, ensuring a clean and organized approach.
 
-11. **OpenAIProvider:** Effortlessly integrate advanced AI-powered chat completions into your Laravel application with the OpenAIProvider. This provider implements a standardized interface for interacting with OpenAI’s GPT models, supporting all major chat parameters, automatic retry logic, and structured responses. Generate dynamic, context-aware text completions for your users with just a few lines of code.
+11. **LLM Providers:** Effortlessly integrate advanced AI-powered chat completions into your Laravel application with our LLM providers. Choose between OpenAI's GPT models or Google's Gemini models through a unified interface. Both providers support all major chat parameters, automatic retry logic, and structured responses. Generate dynamic, context-aware text completions for your users with just a few lines of code.
+
+    - **OpenAIProvider:** Interact with OpenAI's GPT models (GPT-3.5, GPT-4, etc.)
+    - **GeminiProvider:** Interact with Google's Gemini models (Gemini 2.0 Flash, etc.)
+    - **Configurable Provider Selection:** Switch between providers via configuration
+    - **Unified Interface:** Same API for both providers with automatic model selection
 
 ## How to Get Started
 
 1. Install LaraUtilX using Composer:
    ```bash
    composer require omarchouman/lara-util-x
+   ```
 2. Explore the included utilities, traits, and middleware in your Laravel project.
 3. Customize and extend LaraUtilX to match the specific needs of your application.
 

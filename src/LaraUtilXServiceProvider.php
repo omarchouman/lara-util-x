@@ -17,8 +17,8 @@ use LaraUtilX\Utilities\QueryParameterUtil;
 use LaraUtilX\Utilities\RateLimiterUtil;
 use LaraUtilX\Utilities\SchedulerUtil;
 use LaraUtilX\LLMProviders\OpenAI\OpenAIProvider;
-use LaraUtilX\LLMProviders\OpenAI\Contracts\OpenAIProviderInterface;
 use LaraUtilX\LLMProviders\Contracts\LLMProviderInterface;
+use LaraUtilX\LLMProviders\Gemini\GeminiProvider;
 
 class LaraUtilXServiceProvider extends ServiceProvider
 {
@@ -28,19 +28,25 @@ class LaraUtilXServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->bind('AccessLog', AccessLog::class);
-        
-        // Register OpenAI Provider
-        $this->app->bind(OpenAIProviderInterface::class, function ($app) {
+
+        // Register base LLM Provider interface with provider selection
+        $this->app->bind(LLMProviderInterface::class, function ($app) {
+            $default = config('lara-util-x.llm.default_provider', 'openai');
+
+            if ($default === 'gemini') {
+                return new GeminiProvider(
+                    apiKey: config('lara-util-x.gemini.api_key'),
+                    maxRetries: (int) config('lara-util-x.gemini.max_retries', 3),
+                    retryDelay: (int) config('lara-util-x.gemini.retry_delay', 2),
+                    baseUrl: (string) config('lara-util-x.gemini.base_url', 'https://generativelanguage.googleapis.com/v1beta')
+                );
+            }
+
             return new OpenAIProvider(
                 apiKey: config('lara-util-x.openai.api_key'),
-                maxRetries: config('lara-util-x.openai.max_retries', 3),
-                retryDelay: config('lara-util-x.openai.retry_delay', 2)
+                maxRetries: (int) config('lara-util-x.openai.max_retries', 3),
+                retryDelay: (int) config('lara-util-x.openai.retry_delay', 2)
             );
-        });
-
-        // Register base LLM Provider interface
-        $this->app->bind(LLMProviderInterface::class, function ($app) {
-            return $app->make(OpenAIProviderInterface::class);
         });
     }
 
