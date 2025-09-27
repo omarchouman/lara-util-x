@@ -2,7 +2,7 @@
 
 return [
     'llm' => [
-        'default_provider' => env('LLM_DEFAULT_PROVIDER', 'openai'), // openai | gemini
+        'default_provider' => env('LLM_DEFAULT_PROVIDER', 'openai'), // openai | gemini | claude
     ],
     
     'cache' => [
@@ -49,5 +49,16 @@ return [
         'default_temperature' => env('GEMINI_DEFAULT_TEMPERATURE', 0.7),
         'default_max_tokens' => env('GEMINI_DEFAULT_MAX_TOKENS', 300),
         'default_top_p' => env('GEMINI_DEFAULT_TOP_P', 1.0),
+    ],
+
+    'claude' => [
+        'api_key' => env('CLAUDE_API_KEY'),
+        'max_retries' => env('CLAUDE_MAX_RETRIES', 3),
+        'retry_delay' => env('CLAUDE_RETRY_DELAY', 2),
+        'base_url' => env('CLAUDE_BASE_URL', 'https://api.anthropic.com'),
+        'default_model' => env('CLAUDE_DEFAULT_MODEL', 'claude-3-5-sonnet-20241022'),
+        'default_temperature' => env('CLAUDE_DEFAULT_TEMPERATURE', 1.0),
+        'default_max_tokens' => env('CLAUDE_DEFAULT_MAX_TOKENS', 1024),
+        'default_top_p' => env('CLAUDE_DEFAULT_TOP_P', 1.0),
     ],
 ];

@@ -19,6 +19,7 @@ use LaraUtilX\Utilities\SchedulerUtil;
 use LaraUtilX\LLMProviders\OpenAI\OpenAIProvider;
 use LaraUtilX\LLMProviders\Contracts\LLMProviderInterface;
 use LaraUtilX\LLMProviders\Gemini\GeminiProvider;
+use LaraUtilX\LLMProviders\Claude\ClaudeProvider;
 
 class LaraUtilXServiceProvider extends ServiceProvider
 {
@@ -39,6 +40,15 @@ class LaraUtilXServiceProvider extends ServiceProvider
                     maxRetries: (int) config('lara-util-x.gemini.max_retries', 3),
                     retryDelay: (int) config('lara-util-x.gemini.retry_delay', 2),
                     baseUrl: (string) config('lara-util-x.gemini.base_url', 'https://generativelanguage.googleapis.com/v1beta')
+                );
+            }
+
+            if ($default === 'claude') {
+                return new ClaudeProvider(
+                    apiKey: config('lara-util-x.claude.api_key'),
+                    maxRetries: (int) config('lara-util-x.claude.max_retries', 3),
+                    retryDelay: (int) config('lara-util-x.claude.retry_delay', 2),
+                    baseUrl: (string) config('lara-util-x.claude.base_url', 'https://api.anthropic.com')
                 );
             }
 
