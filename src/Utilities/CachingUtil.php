@@ -9,7 +9,7 @@ class CachingUtil
     protected int $defaultExpiration;
     protected array $defaultTags;
 
-    public function __construct(int$defaultExpiration, array $defaultTags)
+    public function __construct(int $defaultExpiration, array $defaultTags)
     {
         $this->defaultExpiration = $defaultExpiration;
         $this->defaultTags = $defaultTags;
@@ -26,15 +26,26 @@ class CachingUtil
      */
     public function cache(string $key, mixed $data, int $minutes = null, array $tags = null)
     {
-        if (Cache::getStore() instanceof \Illuminate\Cache\TaggableStore) {
-            return Cache::tags($tags)->remember($key, $minutes, function () use ($data) {
-                return $data;
-            });
+        // Use constructor defaults if parameters are null
+        $minutes = $minutes ?? $this->defaultExpiration;
+        $tags = $tags ?? $this->defaultTags;
+
+        // Convert minutes to seconds for Cache::put()
+        $seconds = $minutes * 60;
+
+        // Try to use tags if the store supports it and tags are provided
+        if (Cache::getStore() instanceof \Illuminate\Cache\TaggableStore && !empty($tags)) {
+            try {
+                Cache::tags($tags)->put($key, $data, $seconds);
+            } catch (\Exception $e) {
+                // Fallback to regular cache if tags fail
+                Cache::put($key, $data, $seconds);
+            }
+        } else {
+            Cache::put($key, $data, $seconds);
         }
 
-        return Cache::remember($key, $minutes, function () use ($data) {
-            return $data;
-        });
+        return $data;
     }
 
     /**
@@ -44,7 +55,7 @@ class CachingUtil
      * @param  mixed   $default
      * @return mixed
      */
-    public static function get(string $key, mixed $default = null)
+    public function get(string $key, mixed $default = null)
     {
         return Cache::get($key, $default);
     }
@@ -55,7 +66,7 @@ class CachingUtil
      * @param  string  $key
      * @return void
      */
-    public static function forget(string $key)
+    public function forget(string $key)
     {
         Cache::forget($key);
     }
