@@ -20,6 +20,8 @@ use LaraUtilX\LLMProviders\OpenAI\OpenAIProvider;
 use LaraUtilX\LLMProviders\Contracts\LLMProviderInterface;
 use LaraUtilX\LLMProviders\Gemini\GeminiProvider;
 use LaraUtilX\LLMProviders\Claude\ClaudeProvider;
+use LaraUtilX\Rules\RejectCommonPasswords;
+use Illuminate\Support\Facades\Validator;
 
 class LaraUtilXServiceProvider extends ServiceProvider
 {
@@ -99,6 +101,9 @@ class LaraUtilXServiceProvider extends ServiceProvider
             __DIR__ . '/Traits/ApiResponseTrait.php' => app_path('Traits/ApiResponseTrait.php'),
         ], 'lara-util-x-api-response-trait');
 
+        // Publish validation rules
+        $this->publishValidationRule();
+
         $this->loadClass(ApiResponseTrait::class);
         $this->loadClass(FileProcessingTrait::class);
 
@@ -129,6 +134,9 @@ class LaraUtilXServiceProvider extends ServiceProvider
 
         // Register middleware
         $this->app['router']->aliasMiddleware('access.log', AccessLogMiddleware::class);
+
+        // Register custom validation rules
+        $this->registerValidationRules();
     }
 
 
@@ -189,5 +197,34 @@ class LaraUtilXServiceProvider extends ServiceProvider
         $this->publishes([
             __DIR__ . '/Utilities/' . $utility . '.php' => app_path('Utilities/' . $utility . '.php'),
         ], 'lara-util-x-' . $name);
+    }
+
+    /**
+     * Register custom validation rules.
+     */
+    private function registerValidationRules(): void
+    {
+        Validator::extend('reject_common_passwords', function ($attribute, $value, $parameters, $validator) {
+            $rule = new RejectCommonPasswords();
+            $failed = false;
+            $rule->validate($attribute, $value, function ($message) use (&$failed) {
+                $failed = true;
+            });
+            return !$failed;
+        }, 'The :attribute contains a common password that is not allowed.');
+
+        Validator::replacer('reject_common_passwords', function ($message, $attribute, $rule, $parameters) {
+            return str_replace(':attribute', $attribute, $message);
+        });
+    }
+
+    /**
+     * Publish validation rules with correct namespace for app directory.
+     */
+    private function publishValidationRule(): void
+    {
+        $this->publishes([
+            __DIR__ . '/Rules/RejectCommonPasswords_App.php' => app_path('Rules/RejectCommonPasswords.php'),
+        ], 'lara-util-x-validation-rules');
     }
 }
