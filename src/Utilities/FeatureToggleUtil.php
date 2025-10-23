@@ -52,7 +52,10 @@ class FeatureToggleUtil
 
         // Create the configuration file if it doesn't exist
         if (!File::exists($configPath)) {
-            File::copy(__DIR__ . '/../config/feature-toggles.php', $configPath);
+            $sourcePath = __DIR__ . '/../../config/feature-toggles.php';
+            if (File::exists($sourcePath)) {
+                File::copy($sourcePath, $configPath);
+            }
         }
     }
 }
