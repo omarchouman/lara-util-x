@@ -39,6 +39,9 @@ class ApiResponseTraitFeatureTest extends TestCase
 
     public function test_error_response_integration()
     {
+        // Ensure debug mode is enabled for this test
+        Config::set('app.debug', true);
+        
         $message = 'Validation failed';
         $errors = [
             'email' => ['The email field is required.'],
@@ -101,11 +104,10 @@ class ApiResponseTraitFeatureTest extends TestCase
 
     public function test_exception_response_integration()
     {
+        // Ensure debug mode is enabled for this test
+        Config::set('app.debug', true);
+        
         $exception = new \InvalidArgumentException('Invalid parameter provided');
-        $exception->setTrace([
-            ['file' => '/app/controllers/TestController.php', 'line' => 42],
-            ['file' => '/app/routes/web.php', 'line' => 15],
-        ]);
         
         $response = $this->exceptionResponse($exception, 400);
         
