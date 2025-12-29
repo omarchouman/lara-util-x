@@ -21,6 +21,7 @@ use LaraUtilX\LLMProviders\Contracts\LLMProviderInterface;
 use LaraUtilX\LLMProviders\Gemini\GeminiProvider;
 use LaraUtilX\LLMProviders\Claude\ClaudeProvider;
 use LaraUtilX\Rules\RejectCommonPasswords;
+use LaraUtilX\Helpers\XHelper;
 use Illuminate\Support\Facades\Validator;
 
 class LaraUtilXServiceProvider extends ServiceProvider
@@ -59,6 +60,15 @@ class LaraUtilXServiceProvider extends ServiceProvider
                 maxRetries: (int) config('lara-util-x.openai.max_retries', 3),
                 retryDelay: (int) config('lara-util-x.openai.retry_delay', 2)
             );
+        });
+
+        // Register base LLM Provider interface
+        $this->app->bind(LLMProviderInterface::class, function ($app) {
+            return $app->make(OpenAIProviderInterface::class);
+        });
+
+        $this->app->singleton('xhelper', function () {
+            return new XHelper();
         });
     }
 
