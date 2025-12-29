@@ -21,6 +21,7 @@ use LaraUtilX\LLMProviders\Contracts\LLMProviderInterface;
 use LaraUtilX\LLMProviders\Gemini\GeminiProvider;
 use LaraUtilX\LLMProviders\Claude\ClaudeProvider;
 use LaraUtilX\Rules\RejectCommonPasswords;
+use LaraUtilX\Helpers\XHelper;
 use Illuminate\Support\Facades\Validator;
 
 class LaraUtilXServiceProvider extends ServiceProvider

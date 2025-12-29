@@ -1,6 +1,6 @@
 <?php
 
-namespace omarchouman\LaraUtilX\Helpers;
+namespace LaraUtilX\Helpers;
 
 use Illuminate\Support\Str;
 use Carbon\Carbon;
@@ -10,7 +10,7 @@ class XHelper
     // ------------------------
     // Array Helpers
     // ------------------------
-    
+
     public static function arrayTrim(array $array): array
     {
         return array_map(fn($value) => is_string($value) ? trim($value) : $value, $array);
@@ -24,7 +24,7 @@ class XHelper
     // ------------------------
     // String Helpers
     // ------------------------
-    
+
     public static function strBetween(string $string, string $start, string $end): ?string
     {
         $start = preg_quote($start, '/');
@@ -32,7 +32,7 @@ class XHelper
 
         $pattern = "/$start(.*?)$end/";
         preg_match($pattern, $string, $matches);
-        
+
         return $matches[1] ?? null;
     }
 
@@ -44,7 +44,7 @@ class XHelper
     // ------------------------
     // Date Helpers
     // ------------------------
-    
+
     public static function carbonParse($date, $format = 'Y-m-d H:i:s'): ?string
     {
         return Carbon::parse($date)->format($format);
@@ -63,11 +63,4 @@ class XHelper
     {
         return Str::uuid()->toString();
     }
-
-    // public static function isJson(string $string): bool
-    // {
-    //     $decoded = json_decode($string, true);
-        
-    //     return json_last_error() === JSON_ERROR_NONE && (is_array($decoded) || is_object($decoded));
-    // }
 }
