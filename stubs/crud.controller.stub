@@ -1,0 +1,43 @@
+<?php
+
+namespace {{ namespace }};
+
+use {{ model_namespace }}\{{ class }};
+use Illuminate\Http\Request;
+use Illuminate\Http\JsonResponse;
+
+class {{ class }}Controller extends Controller
+{
+    public function index(Request $request): JsonResponse
+    {
+{{ index_body }}
+    }
+
+    public function show({{ class }} ${{ model_var }}): JsonResponse
+    {
+{{ show_eager_load }}        return response()->json(['data' => ${{ model_var }}]);
+    }
+
+    public function store(Request $request): JsonResponse
+    {
+{{ store_validation }}
+        ${{ model_var }} = {{ class }}::create($validated);
+{{ store_eager_load }}
+        return response()->json(['message' => '{{ class }} created successfully.', 'data' => ${{ model_var }}], 201);
+    }
+
+    public function update(Request $request, {{ class }} ${{ model_var }}): JsonResponse
+    {
+{{ update_validation }}
+        ${{ model_var }}->update($validated);
+{{ update_eager_load }}
+        return response()->json(['message' => '{{ class }} updated successfully.', 'data' => ${{ model_var }}]);
+    }
+
+    public function destroy({{ class }} ${{ model_var }}): JsonResponse
+    {
+        ${{ model_var }}->delete();
+
+        return response()->json(['message' => '{{ class }} deleted successfully.']);
+    }
+}

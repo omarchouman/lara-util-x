@@ -22,6 +22,7 @@ use LaraUtilX\LLMProviders\Gemini\GeminiProvider;
 use LaraUtilX\LLMProviders\Claude\ClaudeProvider;
 use LaraUtilX\Rules\RejectCommonPasswords;
 use LaraUtilX\Helpers\XHelper;
+use LaraUtilX\Console\Commands\MakeCrud;
 use Illuminate\Support\Facades\Validator;
 
 class LaraUtilXServiceProvider extends ServiceProvider
@@ -60,11 +61,6 @@ class LaraUtilXServiceProvider extends ServiceProvider
                 maxRetries: (int) config('lara-util-x.openai.max_retries', 3),
                 retryDelay: (int) config('lara-util-x.openai.retry_delay', 2)
             );
-        });
-
-        // Register base LLM Provider interface
-        $this->app->bind(LLMProviderInterface::class, function ($app) {
-            return $app->make(OpenAIProviderInterface::class);
         });
 
         $this->app->singleton('xhelper', function () {
@@ -141,6 +137,15 @@ class LaraUtilXServiceProvider extends ServiceProvider
 
         $this->loadUtilityClasses($classes);
         $this->loadCachingUtility();
+
+        // Register Artisan commands
+        if ($this->app->runningInConsole()) {
+            $this->commands([MakeCrud::class]);
+
+            $this->publishes([
+                __DIR__ . '/../stubs' => base_path('stubs/vendor/lara-util-x'),
+            ], 'lara-util-x-stubs');
+        }
 
         // Register middleware
         $this->app['router']->aliasMiddleware('access.log', AccessLogMiddleware::class);

@@ -1,0 +1,15 @@
+<?php
+
+namespace {{ namespace }};
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+{{ soft_delete_import }}
+class {{ class }} extends Model
+{
+    use HasFactory;{{ soft_delete_trait }}
+
+    protected $fillable = [{{ fillable }}
+    ];
+{{ casts_block }}
+{{ relationships }}}
