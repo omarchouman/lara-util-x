@@ -9,8 +9,18 @@ class MakeCrudCommandTest extends TestCase
     private array $cleanup = [];
 
     // -----------------------------------------------------------------------
-    // Teardown
+    // Setup & Teardown
     // -----------------------------------------------------------------------
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        // Every test in this file generates the same Product files. A leftover
+        // file makes the generator warn and skip, so the next test would assert
+        // against stale content.
+        $this->removeGeneratedFiles();
+    }
 
     protected function tearDown(): void
     {
@@ -20,7 +30,23 @@ class MakeCrudCommandTest extends TestCase
             }
         }
 
+        $this->removeGeneratedFiles();
+
         parent::tearDown();
+    }
+
+    private function removeGeneratedFiles(): void
+    {
+        $paths = array_merge([
+            app_path('Models/Product.php'),
+            app_path('Http/Controllers/ProductController.php'),
+        ], glob(database_path('migrations/*_create_products_table.php')) ?: []);
+
+        foreach ($paths as $path) {
+            if (is_file($path)) {
+                unlink($path);
+            }
+        }
     }
 
     private function track(string $path): string

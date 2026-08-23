@@ -14,6 +14,7 @@ abstract class CrudController extends Controller
     protected Model $model;
     protected array $validationRules = [];
     protected array $searchableFields = [];
+    protected array $sortableFields = [];
     protected array $relationships = [];
     protected int $perPage = 15;
 
@@ -40,10 +41,7 @@ abstract class CrudController extends Controller
             $query->with($this->relationships);
         }
 
-        if ($request->has('sort_by')) {
-            $direction = $request->get('sort_direction', 'asc');
-            $query->orderBy($request->get('sort_by'), $direction);
-        }
+        $this->applySorting($query, $request);
 
         $records = $query->paginate($request->get('per_page', $this->perPage));
 
@@ -116,7 +114,25 @@ abstract class CrudController extends Controller
 
         return response()->json([
             'message' => 'Record deleted successfully'
-        ], 204);
+        ]);
+    }
+
+
+    /**
+     * Sorting is restricted to $sortableFields so a request cannot order by
+     * columns it should never see, such as password hashes or tokens.
+     */
+    protected function applySorting($query, Request $request): void
+    {
+        $column = $request->input('sort_by');
+
+        if (! $column || ! in_array($column, $this->sortableFields, true)) {
+            return;
+        }
+
+        $direction = strtolower($request->input('sort_direction', 'asc'));
+
+        $query->orderBy($column, $direction === 'desc' ? 'desc' : 'asc');
     }
 
 

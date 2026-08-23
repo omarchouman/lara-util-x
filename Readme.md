@@ -6,9 +6,9 @@
 
 LaraUtilX is a comprehensive Laravel package designed to supercharge your development experience by providing a suite of utility classes, helpful traits, middleware, and more. Whether you're a seasoned Laravel developer or just getting started, LaraUtilX offers a collection of tools to streamline common tasks and enhance the functionality of your Laravel applications.
 
-**Version:** 1.3.0  
-**Laravel Support:** Laravel 8.0+  
-**PHP Support:** PHP 8.0+  
+**Version:** 1.5.2  
+**Laravel Support:** Laravel 10, 11, 12, 13  
+**PHP Support:** PHP 8.1+  
 **License:** MIT
 
 ---
@@ -27,7 +27,7 @@ Explore full usage examples, configuration options, and best practices at:
 
 3. **FileProcessingTrait:** Manage file uploads and deletions seamlessly with the `FileProcessingTrait`. This trait offers methods for uploading single or multiple files, deleting files, and now retrieving file contents.
 
-4. **ValidationHelperTrait:** Validate user input with ease using the `ValidationHelperTrait`. This trait includes handy methods for common validation scenarios, such as email addresses, phone numbers, and strong passwords.
+4. **CRUD Generator:** Scaffold a complete API resource in one command with `php artisan make:crud`. Generates the model, controller, and migration from a field definition, with support for relationships, soft deletes, searchable fields, and automatic route registration.
 
 5. **SchedulerMonitor:** Keep an eye on your scheduled tasks with the `SchedulerUtil` utility. Monitor upcoming scheduled events, check if tasks are overdue, and gain insights into the status of your scheduled jobs.
 
@@ -56,9 +56,60 @@ Explore full usage examples, configuration options, and best practices at:
 
 15. **RateLimiterUtil:** Implement rate limiting for your APIs and endpoints using the `RateLimiterUtil`. Control request frequency, prevent abuse, and manage API usage with configurable limits and decay times.
 
-16. **Auditable Trait:** Automatically track model changes with the `Auditable` trait. Log create, update, and delete operations with user context, old values, and new values. Perfect for audit trails and compliance requirements.
+16. **Auditable Trait:** Automatically track model changes with the `Auditable` trait. Log create, update, and delete operations with user context, old values, and new values. Sensitive attributes such as passwords and tokens are excluded from the trail by default, and both the exclusion list and the audit table name are configurable.
 
 17. **RejectCommonPasswords Rule:** Strengthen password security with the `RejectCommonPasswords` validation rule. Prevent users from using common, easily guessable passwords with a comprehensive list of weak passwords.
+
+18. **XHelper:** Reach for a grab-bag of small helpers via the `XHelper` class — array trimming and flattening, substring extraction, slugification, Carbon date parsing and human-readable diffs, and UUID generation.
+
+## CRUD Generator
+
+Scaffold a model, an API controller, and a migration in a single command:
+
+```bash
+php artisan make:crud Post --fields="title:string:required,body:text:nullable,price:decimal:required|min:0"
+```
+
+### Options
+
+| Option | Description |
+|---|---|
+| `--fields=` | Comma-separated `column:type:validation` definitions |
+| `--belongs-to=` | Add a BelongsTo relationship (repeatable) |
+| `--has-many=` | Add a HasMany relationship (repeatable) |
+| `--has-one=` | Add a HasOne relationship (repeatable) |
+| `--belongs-to-many=` | Add a BelongsToMany relationship (repeatable) |
+| `--soft-deletes` | Enable soft delete support |
+| `--searchable=` | Comma-separated fields to enable search on |
+| `--per-page=` | Default items per page (defaults to 15) |
+| `--register-routes` | Append the `apiResource` route to `routes/api.php` |
+| `--migrate` | Run `php artisan migrate` after generating |
+| `--force` | Overwrite existing files |
+
+Existing files are never overwritten unless you pass `--force`; the command warns and skips instead.
+
+```bash
+php artisan make:crud Post \
+    --fields="title:string:required,body:text:nullable" \
+    --belongs-to=User \
+    --has-many=Comment \
+    --searchable=title,body \
+    --soft-deletes \
+    --register-routes
+```
+
+## Sorting in CrudController
+
+`CrudController` accepts `sort_by` and `sort_direction` query parameters, but only for columns you explicitly allow. This keeps a caller from ordering by columns they should never be able to observe, such as password hashes or tokens:
+
+```php
+class PostController extends CrudController
+{
+    protected array $sortableFields = ['title', 'created_at'];
+}
+```
+
+A `sort_by` value outside `$sortableFields` is ignored rather than rejected. When the list is empty, no sorting is applied at all.
 
 ## Test Suite
 
@@ -71,7 +122,7 @@ LaraUtilX comes with a comprehensive test suite that ensures reliability and qua
 Make sure you have installed the development dependencies:
 
 ```bash
-composer install --dev
+composer install
 ```
 
 #### Run All Tests
@@ -122,12 +173,15 @@ The test suite provides comprehensive coverage for:
 tests/
 ├── TestCase.php                    # Base test case with Laravel setup
 ├── Unit/                          # Unit tests for individual components
+│   ├── Console/
+│   │   └── MakeCrudCommandTest.php
 │   ├── Enums/
 │   │   └── LogLevelTest.php
 │   ├── Rules/
 │   │   └── RejectCommonPasswordsTest.php
 │   ├── Traits/
 │   │   ├── ApiResponseTraitTest.php
+│   │   ├── AuditableTest.php
 │   │   └── FileProcessingTraitTest.php
 │   └── Utilities/
 │       ├── CachingUtilTest.php
@@ -140,10 +194,11 @@ tests/
 │       ├── RateLimiterUtilTest.php
 │       └── SchedulerUtilTest.php
 └── Feature/                       # Integration tests
-    ├── Traits/
-    │   └── ApiResponseTraitFeatureTest.php
-    └── Utilities/
-        └── CachingUtilFeatureTest.php
+    ├── Http/
+    │   └── Controllers/
+    │       └── CrudControllerTest.php
+    └── Traits/
+        └── ApiResponseTraitFeatureTest.php
 ```
 
 ## How to Get Started
@@ -162,7 +217,7 @@ LaraUtilX is actively maintained and welcomes contributions! The package include
 ### Development Setup
 
 1. Clone the repository
-2. Install dependencies: `composer install --dev`
+2. Install dependencies: `composer install`
 3. Run tests: `./vendor/bin/phpunit`
 4. Check code coverage: `./vendor/bin/phpunit --coverage-html coverage`
 

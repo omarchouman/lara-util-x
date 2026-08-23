@@ -23,17 +23,31 @@ trait Auditable
         });
     }
 
+    /**
+     * Attributes that never reach the audit trail. Override on the model to add
+     * your own on top of the configured defaults.
+     */
+    protected static function auditExcludedAttributes(): array
+    {
+        return config('lara-util-x.audit.excluded_attributes', []);
+    }
+
     private static function logAudit(Model $model, string $event, array $oldValues = [], array $newValues = []): void
     {
-        DB::table('model_audits')->insert([
+        DB::table(config('lara-util-x.audit.table', 'model_audits'))->insert([
             'model_type' => get_class($model),
             'model_id' => $model->getKey(),
             'event' => $event,
-            'old_values' => json_encode($oldValues),
-            'new_values' => json_encode($newValues),
+            'old_values' => json_encode(self::withoutExcludedAttributes($oldValues)),
+            'new_values' => json_encode(self::withoutExcludedAttributes($newValues)),
             'user_id' => Auth::id(),
             'created_at' => now(),
             'updated_at' => now(),
         ]);
+    }
+
+    private static function withoutExcludedAttributes(array $values): array
+    {
+        return array_diff_key($values, array_flip(static::auditExcludedAttributes()));
     }
 }

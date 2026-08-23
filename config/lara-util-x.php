@@ -10,6 +10,22 @@ return [
         'default_tags' => [],
     ],
 
+    'audit' => [
+        'table' => 'model_audits',
+
+        // Never written to the audit trail by the Auditable trait.
+        'excluded_attributes' => [
+            'password',
+            'password_confirmation',
+            'remember_token',
+            'api_token',
+            'access_token',
+            'refresh_token',
+            'secret',
+            'token',
+        ],
+    ],
+
     'rate_limiting' => [
         'default_max_attempts' => 60,
         'default_decay_minutes' => 1,
