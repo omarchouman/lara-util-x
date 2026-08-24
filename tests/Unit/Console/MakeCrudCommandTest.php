@@ -554,6 +554,83 @@ class MakeCrudCommandTest extends TestCase
         $this->trackMigration('products');
     }
 
+    public function test_controller_index_restricts_sorting_to_an_allow_list()
+    {
+        $this->artisan('make:crud', [
+            'name'     => 'Product',
+            '--fields' => 'name:string,description:text',
+        ])->assertExitCode(0);
+
+        $content = file_get_contents($this->track(app_path('Http/Controllers/ProductController.php')));
+
+        $this->assertStringContainsString("\$sortable = ['id', 'name', 'description', 'created_at'];", $content);
+        $this->assertStringContainsString("in_array(\$request->input('sort_by'), \$sortable, true)", $content);
+
+        $this->track(app_path('Models/Product.php'));
+        $this->trackMigration('products');
+    }
+
+    public function test_controller_index_sortable_allow_list_can_be_overridden()
+    {
+        $this->artisan('make:crud', [
+            'name'       => 'Product',
+            '--fields'   => 'name:string,description:text',
+            '--sortable' => 'name',
+        ])->assertExitCode(0);
+
+        $content = file_get_contents($this->track(app_path('Http/Controllers/ProductController.php')));
+
+        $this->assertStringContainsString("\$sortable = ['name'];", $content);
+
+        $this->track(app_path('Models/Product.php'));
+        $this->trackMigration('products');
+    }
+
+    public function test_controller_index_omits_credential_columns_from_default_sortable_list()
+    {
+        $this->artisan('make:crud', [
+            'name'     => 'Product',
+            '--fields' => 'name:string,password:string,api_token:string',
+        ])->assertExitCode(0);
+
+        $content = file_get_contents($this->track(app_path('Http/Controllers/ProductController.php')));
+
+        $sortableLine = $this->sortableLine($content);
+
+        $this->assertStringContainsString("\$sortable = ['id', 'name', 'created_at'];", $content);
+        $this->assertStringNotContainsString('password', $sortableLine);
+        $this->assertStringNotContainsString('api_token', $sortableLine);
+
+        $this->track(app_path('Models/Product.php'));
+        $this->trackMigration('products');
+    }
+
+    public function test_controller_index_normalises_sort_direction()
+    {
+        $this->artisan('make:crud', [
+            'name'     => 'Product',
+            '--fields' => 'name:string',
+        ])->assertExitCode(0);
+
+        $content = file_get_contents($this->track(app_path('Http/Controllers/ProductController.php')));
+
+        $this->assertStringContainsString("=== 'desc' ? 'desc' : 'asc'", $content);
+
+        $this->track(app_path('Models/Product.php'));
+        $this->trackMigration('products');
+    }
+
+    private function sortableLine(string $content): string
+    {
+        foreach (explode("\n", $content) as $line) {
+            if (str_contains($line, '$sortable = [')) {
+                return $line;
+            }
+        }
+
+        return '';
+    }
+
     public function test_controller_index_uses_custom_per_page()
     {
         $this->artisan('make:crud', [
