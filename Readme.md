@@ -6,7 +6,7 @@
 
 LaraUtilX is a comprehensive Laravel package designed to supercharge your development experience by providing a suite of utility classes, helpful traits, middleware, and more. Whether you're a seasoned Laravel developer or just getting started, LaraUtilX offers a collection of tools to streamline common tasks and enhance the functionality of your Laravel applications.
 
-**Version:** 1.5.2  
+**Version:** 1.5.3  
 **Laravel Support:** Laravel 10, 11, 12, 13  
 **PHP Support:** PHP 8.1+  
 **License:** MIT
@@ -81,6 +81,7 @@ php artisan make:crud Post --fields="title:string:required,body:text:nullable,pr
 | `--belongs-to-many=` | Add a BelongsToMany relationship (repeatable) |
 | `--soft-deletes` | Enable soft delete support |
 | `--searchable=` | Comma-separated fields to enable search on |
+| `--sortable=` | Comma-separated fields to allow sorting on (defaults to the declared fields) |
 | `--per-page=` | Default items per page (defaults to 15) |
 | `--register-routes` | Append the `apiResource` route to `routes/api.php` |
 | `--migrate` | Run `php artisan migrate` after generating |
@@ -110,6 +111,12 @@ class PostController extends CrudController
 ```
 
 A `sort_by` value outside `$sortableFields` is ignored rather than rejected. When the list is empty, no sorting is applied at all.
+
+Controllers produced by `make:crud` carry the same protection through a `$sortable` allow-list written into the generated `index()` method. It defaults to `id`, your declared `--fields`, and `created_at`, with credential-looking columns such as `password` and `api_token` left out. Pass `--sortable=` to set the list yourself:
+
+```bash
+php artisan make:crud Post --fields="title:string,body:text" --sortable="title,created_at"
+```
 
 ## Test Suite
 

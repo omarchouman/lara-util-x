@@ -16,6 +16,7 @@ class MakeCrud extends Command
         {--belongs-to-many=* : BelongsToMany relationship (e.g. --belongs-to-many=Tag)}
         {--soft-deletes : Enable soft delete support}
         {--searchable= : Comma-separated fields to enable search on (e.g. title,body)}
+        {--sortable= : Comma-separated fields to allow sorting on (defaults to the declared fields)}
         {--per-page=15 : Default items per page for pagination}
         {--register-routes : Automatically append the apiResource route to routes/api.php}
         {--migrate : Run php artisan migrate after generating the migration}
@@ -412,8 +413,14 @@ PHP;
             $lines[] = '';
         }
 
-        $lines[] = "        if (\$request->filled('sort_by')) {";
-        $lines[] = "            \$query->orderBy(\$request->input('sort_by'), \$request->input('sort_direction', 'asc'));";
+        $sortable    = $this->getSortableFields();
+        $sortableStr = "['" . implode("', '", $sortable) . "']";
+
+        $lines[] = "        \$sortable = {$sortableStr};";
+        $lines[] = '';
+        $lines[] = "        if (\$request->filled('sort_by') && in_array(\$request->input('sort_by'), \$sortable, true)) {";
+        $lines[] = "            \$direction = strtolower(\$request->input('sort_direction', 'asc')) === 'desc' ? 'desc' : 'asc';";
+        $lines[] = "            \$query->orderBy(\$request->input('sort_by'), \$direction);";
         $lines[] = "        }";
         $lines[] = '';
         $lines[] = "        \$records = \$query->paginate(\$request->input('per_page', {$perPage}));";
@@ -578,6 +585,29 @@ PHP;
             return [];
         }
         return array_values(array_filter(array_map('trim', explode(',', $raw))));
+    }
+
+    /**
+     * Columns the generated controller will allow ?sort_by to use. Falls back to
+     * the declared fields, minus anything that looks like a credential, so a
+     * caller cannot order by a column and infer its value from the row order.
+     */
+    private function getSortableFields(): array
+    {
+        $raw = $this->option('sortable') ?? '';
+
+        if (! empty(trim($raw))) {
+            return array_values(array_filter(array_map('trim', explode(',', $raw))));
+        }
+
+        $sensitive = ['password', 'remember_token', 'api_token', 'access_token', 'refresh_token', 'secret', 'token'];
+        $declared  = array_column($this->fields, 'name');
+
+        return array_values(array_unique(array_merge(
+            ['id'],
+            array_diff($declared, $sensitive),
+            ['created_at']
+        )));
     }
 
     private function getRelationshipsList(): array
