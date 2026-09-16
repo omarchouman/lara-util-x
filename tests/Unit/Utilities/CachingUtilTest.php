@@ -2,10 +2,10 @@
 
 namespace LaraUtilX\Tests\Unit\Utilities;
 
+use Illuminate\Cache\TaggableStore;
+use Illuminate\Support\Facades\Cache;
 use LaraUtilX\Tests\TestCase;
 use LaraUtilX\Utilities\CachingUtil;
-use Illuminate\Support\Facades\Cache;
-use Illuminate\Cache\TaggableStore;
 
 class CachingUtilTest extends TestCase
 {
@@ -14,116 +14,89 @@ class CachingUtilTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+
+        // The array store is taggable, so tagged reads and writes are exercised
+        // for real rather than through a mock that cannot disagree with us.
         $this->cachingUtil = new CachingUtil(60, ['default']);
         Cache::flush();
     }
 
-    public function test_can_cache_data_with_default_expiration()
+    public function test_store_under_test_is_taggable()
     {
-        $key = 'test_key';
-        $data = ['test' => 'data'];
-        
-        // Mock Cache facade
-        Cache::shouldReceive('getStore')->andReturn(new \Illuminate\Cache\ArrayStore());
-        Cache::shouldReceive('put')->with($key, $data, \Mockery::any())->andReturn(true);
-        Cache::shouldReceive('get')->with($key, null)->andReturn($data);
-        Cache::shouldReceive('get')->with($key)->andReturn($data);
-        
-        $result = $this->cachingUtil->cache($key, $data);
-        
-        $this->assertEquals($data, $result);
-        $this->assertEquals($data, Cache::get($key));
+        $this->assertInstanceOf(TaggableStore::class, Cache::getStore());
     }
 
-    public function test_can_cache_data_with_custom_expiration()
+    // -----------------------------------------------------------------------
+    // Round trips
+    // -----------------------------------------------------------------------
+
+    public function test_tagged_data_can_be_read_back()
     {
-        $key = 'test_key_custom';
         $data = ['test' => 'data'];
-        $minutes = 30;
-        
-        // Mock Cache facade
-        Cache::shouldReceive('getStore')->andReturn(new \Illuminate\Cache\ArrayStore());
-        Cache::shouldReceive('put')->with($key, $data, $minutes * 60)->andReturn(true);
-        Cache::shouldReceive('get')->with($key, null)->andReturn($data);
-        Cache::shouldReceive('get')->with($key)->andReturn($data);
-        
-        $result = $this->cachingUtil->cache($key, $data, $minutes);
-        
-        $this->assertEquals($data, $result);
-        $this->assertEquals($data, Cache::get($key));
+
+        $this->cachingUtil->cache('test_key', $data);
+
+        $this->assertEquals($data, $this->cachingUtil->get('test_key'));
     }
 
-    public function test_can_cache_data_with_custom_tags()
+    public function test_untagged_data_can_be_read_back()
     {
-        $key = 'test_key_tags';
-        $data = ['test' => 'data'];
-        $tags = ['custom', 'test'];
-        
-        $result = $this->cachingUtil->cache($key, $data, null, $tags);
-        
-        $this->assertEquals($data, $result);
+        $util = new CachingUtil(60, []);
+
+        $util->cache('plain_key', 'value');
+
+        $this->assertEquals('value', $util->get('plain_key'));
+        $this->assertEquals('value', Cache::get('plain_key'));
     }
 
-    public function test_can_retrieve_cached_data()
+    public function test_cache_returns_the_data_it_stored()
     {
-        $key = 'test_key_get';
-        $data = ['test' => 'data'];
-        
-        // Mock Cache facade
-        Cache::shouldReceive('getStore')->andReturn(new \Illuminate\Cache\ArrayStore());
-        Cache::shouldReceive('put')->with($key, $data, \Mockery::any())->andReturn(true);
-        Cache::shouldReceive('get')->with($key, null)->andReturn($data);
-        
-        $this->cachingUtil->cache($key, $data);
-        $result = $this->cachingUtil->get($key);
-        
-        $this->assertEquals($data, $result);
+        $data = ['a' => 1];
+
+        $this->assertEquals($data, $this->cachingUtil->cache('returned', $data));
+    }
+
+    public function test_custom_expiration_is_honoured()
+    {
+        $this->cachingUtil->cache('expiring', 'value', 120);
+
+        $this->assertEquals('value', $this->cachingUtil->get('expiring'));
+    }
+
+    public function test_explicit_tags_override_the_defaults()
+    {
+        $this->cachingUtil->cache('tagged', 'value', null, ['reports']);
+
+        $this->assertEquals('value', $this->cachingUtil->get('tagged', null, ['reports']));
     }
 
     public function test_returns_default_when_key_not_found()
     {
-        $key = 'non_existent_key';
-        $default = 'default_value';
-        
-        // Mock Cache facade
-        Cache::shouldReceive('get')->with($key, $default)->andReturn($default);
-        
-        $result = $this->cachingUtil->get($key, $default);
-        
-        $this->assertEquals($default, $result);
+        $this->assertEquals('fallback', $this->cachingUtil->get('missing', 'fallback'));
+        $this->assertNull($this->cachingUtil->get('missing'));
     }
 
-    public function test_can_forget_cached_data()
+    // -----------------------------------------------------------------------
+    // Forgetting
+    // -----------------------------------------------------------------------
+
+    public function test_can_forget_tagged_data()
     {
-        $key = 'test_key_forget';
-        $data = ['test' => 'data'];
-        
-        // Mock Cache facade - first call returns data, after forget returns null
-        Cache::shouldReceive('getStore')->andReturn(new \Illuminate\Cache\ArrayStore());
-        Cache::shouldReceive('put')->with($key, $data, \Mockery::any())->andReturn(true);
-        Cache::shouldReceive('get')->with($key, null)->andReturn($data)->once();
-        Cache::shouldReceive('forget')->with($key)->andReturn(true);
-        Cache::shouldReceive('get')->with($key, null)->andReturn(null)->once();
-        
-        $this->cachingUtil->cache($key, $data);
-        $this->assertEquals($data, $this->cachingUtil->get($key));
-        
-        $this->cachingUtil->forget($key);
-        $this->assertNull($this->cachingUtil->get($key));
+        $this->cachingUtil->cache('forget_me', 'value');
+        $this->assertEquals('value', $this->cachingUtil->get('forget_me'));
+
+        $this->cachingUtil->forget('forget_me');
+
+        $this->assertNull($this->cachingUtil->get('forget_me'));
     }
 
-    public function test_handles_taggable_store_gracefully()
+    public function test_can_forget_untagged_data()
     {
-        $key = 'test_key_taggable';
-        $data = ['test' => 'data'];
-        $tags = ['test'];
-        
-        // Mock Cache facade to avoid store issues
-        Cache::shouldReceive('getStore')->andReturn(new \Illuminate\Cache\ArrayStore());
-        Cache::shouldReceive('put')->andReturn(true);
-        
-        $result = $this->cachingUtil->cache($key, $data, null, $tags);
-        
-        $this->assertEquals($data, $result);
+        $util = new CachingUtil(60, []);
+        $util->cache('plain_forget', 'value');
+
+        $util->forget('plain_forget');
+
+        $this->assertNull($util->get('plain_forget'));
     }
 }

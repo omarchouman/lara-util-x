@@ -91,6 +91,66 @@ class CrudControllerTest extends TestCase
     }
 
     // -----------------------------------------------------------------------
+    // Pagination limits
+    // -----------------------------------------------------------------------
+
+    public function test_per_page_is_capped()
+    {
+        $controller = new ProductCrudController(new CrudProduct());
+
+        $response = $controller->getAllRecords(Request::create('/products?per_page=1000000'));
+
+        $this->assertEquals(100, $response->getData(true)['meta']['per_page']);
+    }
+
+    public function test_per_page_below_the_cap_is_honoured()
+    {
+        $controller = new ProductCrudController(new CrudProduct());
+
+        $response = $controller->getAllRecords(Request::create('/products?per_page=2'));
+
+        $this->assertEquals(2, $response->getData(true)['meta']['per_page']);
+    }
+
+    public function test_invalid_per_page_falls_back_to_the_default()
+    {
+        $controller = new ProductCrudController(new CrudProduct());
+
+        $response = $controller->getAllRecords(Request::create('/products?per_page=0'));
+
+        $this->assertEquals(15, $response->getData(true)['meta']['per_page']);
+    }
+
+    // -----------------------------------------------------------------------
+    // Unique rules on update
+    // -----------------------------------------------------------------------
+
+    public function test_unique_rule_is_rewritten_when_it_is_not_the_last_rule()
+    {
+        $controller = new ProductCrudController(new CrudProduct());
+
+        $rule = $controller->exposeIgnoreCurrentRecord('required|unique:crud_products,name|max:20', 'name', 7);
+
+        $this->assertEquals('required|unique:crud_products,name,7|max:20', $rule);
+    }
+
+    public function test_unique_rule_without_a_column_uses_the_field_name()
+    {
+        $controller = new ProductCrudController(new CrudProduct());
+
+        $rule = $controller->exposeIgnoreCurrentRecord('unique:crud_products', 'name', 7);
+
+        $this->assertEquals('unique:crud_products,name,7', $rule);
+    }
+
+    public function test_non_unique_rules_are_left_alone()
+    {
+        $controller = new ProductCrudController(new CrudProduct());
+
+        $this->assertEquals('required|max:20', $controller->exposeIgnoreCurrentRecord('required|max:20', 'name', 7));
+    }
+
+    // -----------------------------------------------------------------------
     // Delete
     // -----------------------------------------------------------------------
 
@@ -116,6 +176,11 @@ class CrudProduct extends Model
 class ProductCrudController extends CrudController
 {
     protected array $sortableFields = ['name'];
+
+    public function exposeIgnoreCurrentRecord(mixed $rule, string $field, mixed $id): mixed
+    {
+        return $this->ignoreCurrentRecord($rule, $field, $id);
+    }
 }
 
 class UnsortableProductCrudController extends CrudController

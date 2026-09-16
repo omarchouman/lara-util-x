@@ -23,6 +23,9 @@
         "illuminate/validation": "^10.0|^11.0|^12.0|^13.0",
         "nesbot/carbon": "^2.67|^3.0"
     },
+    "suggest": {
+        "openai-php/client": "Required by the OpenAI LLM provider (^0.13), which is the default LLM_DEFAULT_PROVIDER"
+    },
     "require-dev": {
         "phpunit/phpunit": "^10.0|^11.0|^12.0",
         "orchestra/testbench": "^8.0|^9.0|^10.0|^11.0",

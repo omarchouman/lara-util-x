@@ -28,9 +28,9 @@ class FilteringUtil
                 case 'not_contains':
                     return stripos(data_get($item, $name), $value) === false;
                 case 'starts_with':
-                    return stripos(data_get($item, $name), $value) === 0;
+                    return str_starts_with(strtolower((string) data_get($item, $name)), strtolower((string) $value));
                 case 'ends_with':
-                    return stripos(data_get($item, $name), $value) === strlen(data_get($item, $name)) - strlen($value);
+                    return str_ends_with(strtolower((string) data_get($item, $name)), strtolower((string) $value));
                 default:
                     return false;
             }

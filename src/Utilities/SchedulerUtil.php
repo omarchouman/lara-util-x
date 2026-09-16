@@ -2,10 +2,8 @@
 
 namespace LaraUtilX\Utilities;
 
-use Carbon\Carbon;
 use Illuminate\Console\Scheduling\Event;
 use Illuminate\Console\Scheduling\Schedule;
-use Illuminate\Support\Facades\Log;
 
 class SchedulerUtil
 {
@@ -16,47 +14,63 @@ class SchedulerUtil
      */
     public function getScheduleSummary()
     {
-        $schedule = app(Schedule::class);
-
-        Log::info('Scheduled Events: ' . print_r($schedule->events(), true));
-
-        return collect($schedule->events())->map(function (Event $event) {
+        return collect($this->events())->map(function (Event $event) {
             return [
                 'command' => $event->command,
                 'expression' => $event->expression,
                 'description' => $event->description,
                 'next_run' => $event->nextRunDate(),
                 'is_due' => $this->isDue($event),
-                'is_running' => $event->isRunning(),
+                'is_running' => $this->isRunning($event),
                 'output' => $event->output,
             ];
         })->toArray();
     }
 
     /**
-     * Check if any scheduled tasks are overdue.
+     * Determine whether an event is due to run now.
      *
-     * @param  Event  $event
-     * @return bool
+     * Laravel's Event::isDue() needs the application instance; there is no
+     * getNextRunDate(), and comparing nextRunDate() against now never matches
+     * because that date is always in the future.
      */
-    private function isDue(Event $event)
+    public function isDue(Event $event): bool
     {
-        $nextRunDate = $event->getNextRunDate();
-
-        return $nextRunDate <= Carbon::now();
+        return $event->isDue(app());
     }
 
     /**
-     * Check if any scheduled tasks are overdue.
+     * Determine whether an event is currently running.
+     *
+     * Only events using withoutOverlapping() hold a mutex, so anything else
+     * reports false rather than throwing.
+     */
+    public function isRunning(Event $event): bool
+    {
+        if (! $event->withoutOverlapping) {
+            return false;
+        }
+
+        return $event->mutex->exists($event);
+    }
+
+    /**
+     * Check if any scheduled tasks are due and not already running.
      *
      * @return bool
      */
     public function hasOverdueTasks()
     {
-        $schedule = app(Schedule::class);
+        return collect($this->events())->contains(function (Event $event) {
+            return $this->isDue($event) && ! $this->isRunning($event);
+        });
+    }
 
-        return collect($schedule->events())->filter(function (Event $event) {
-            return $this->isDue($event) && !$event->isRunning();
-        })->isNotEmpty();
+    /**
+     * @return array<int, Event>
+     */
+    private function events(): array
+    {
+        return app(Schedule::class)->events();
     }
 }

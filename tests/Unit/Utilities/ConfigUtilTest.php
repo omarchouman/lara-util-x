@@ -2,10 +2,9 @@
 
 namespace LaraUtilX\Tests\Unit\Utilities;
 
+use Illuminate\Support\Facades\Storage;
 use LaraUtilX\Tests\TestCase;
 use LaraUtilX\Utilities\ConfigUtil;
-use Illuminate\Support\Facades\Config;
-use Illuminate\Support\Facades\Storage;
 
 class ConfigUtilTest extends TestCase
 {
@@ -14,89 +13,116 @@ class ConfigUtilTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+
+        // A fake disk, so settings are genuinely written and read back rather
+        // than asserted through a mocked Storage::put.
+        Storage::fake();
+
         $this->configUtil = new ConfigUtil();
     }
+
+    // -----------------------------------------------------------------------
+    // App settings
+    // -----------------------------------------------------------------------
 
     public function test_can_get_all_app_settings()
     {
         $settings = $this->configUtil->getAllAppSettings();
-        
+
         $this->assertIsArray($settings);
         $this->assertArrayHasKey('name', $settings);
         $this->assertArrayHasKey('env', $settings);
     }
 
-    public function test_can_get_specific_app_setting()
+    // -----------------------------------------------------------------------
+    // Round trips
+    // -----------------------------------------------------------------------
+
+    public function test_setting_is_persisted_and_read_back()
     {
-        $appName = $this->configUtil->getAllSettings(null, 'name');
-        
-        $this->assertIsString($appName);
+        $this->configUtil->setSetting('site_name', 'LaraUtilX');
+
+        $this->assertEquals('LaraUtilX', $this->configUtil->getSetting('site_name'));
     }
 
-    public function test_can_get_setting_from_existing_file()
+    public function test_setting_survives_a_new_instance()
     {
-        // Create a test settings file
-        $testSettings = ['test_key' => 'test_value', 'another_key' => 'another_value'];
-        $filePath = 'test_settings.json';
-        
-        Storage::put($filePath, json_encode($testSettings));
-        
-        $settings = $this->configUtil->getAllSettings($filePath);
-        
-        $this->assertEquals($testSettings, $settings);
-        
-        // Clean up
-        Storage::delete($filePath);
+        $this->configUtil->setSetting('theme', 'dark');
+
+        $this->assertEquals('dark', (new ConfigUtil())->getSetting('theme'));
+    }
+
+    public function test_can_update_an_existing_setting()
+    {
+        $this->configUtil->setSetting('mode', 'initial');
+        $this->configUtil->setSetting('mode', 'updated');
+
+        $this->assertEquals('updated', $this->configUtil->getSetting('mode'));
+    }
+
+    public function test_setting_a_key_leaves_other_keys_intact()
+    {
+        $this->configUtil->setSetting('first', 'one');
+        $this->configUtil->setSetting('second', 'two');
+
+        $this->assertEquals('one', $this->configUtil->getSetting('first'));
+        $this->assertEquals('two', $this->configUtil->getSetting('second'));
+    }
+
+    public function test_supports_dot_notation()
+    {
+        $this->configUtil->setSetting('mail.from', 'hello@example.com');
+
+        $this->assertEquals('hello@example.com', $this->configUtil->getSetting('mail.from'));
+        $this->assertEquals(['from' => 'hello@example.com'], $this->configUtil->getSetting('mail'));
+    }
+
+    public function test_can_forget_a_setting()
+    {
+        $this->configUtil->setSetting('temporary', 'value');
+        $this->configUtil->forgetSetting('temporary');
+
+        $this->assertNull($this->configUtil->getSetting('temporary'));
+    }
+
+    public function test_settings_file_lands_at_the_configured_path()
+    {
+        $this->configUtil->setSetting('anything', 'value');
+
+        Storage::assertExists('config/settings.json');
+    }
+
+    public function test_non_ascii_values_survive_the_round_trip()
+    {
+        $this->configUtil->setSetting('greeting', 'مرحبا بيروت');
+
+        $this->assertEquals('مرحبا بيروت', $this->configUtil->getSetting('greeting'));
+    }
+
+    // -----------------------------------------------------------------------
+    // Defaults and missing data
+    // -----------------------------------------------------------------------
+
+    public function test_returns_null_for_non_existent_setting()
+    {
+        $this->assertNull($this->configUtil->getSetting('non_existent_key'));
+    }
+
+    public function test_returns_given_default_for_non_existent_setting()
+    {
+        $this->assertEquals('fallback', $this->configUtil->getSetting('missing', 'fallback'));
     }
 
     public function test_returns_empty_array_for_non_existent_file()
     {
-        $settings = $this->configUtil->getAllSettings('non_existent_file.json');
-        
-        $this->assertEquals([], $settings);
+        $this->assertEquals([], $this->configUtil->getAllSettings('non_existent_file.json'));
     }
 
-    public function test_returns_null_for_non_existent_setting()
+    public function test_can_read_settings_from_an_explicit_path()
     {
-        $setting = $this->configUtil->getSetting('non_existent_key');
-        
-        $this->assertNull($setting);
-    }
+        $expected = ['test_key' => 'test_value'];
+        Storage::put('test_settings.json', json_encode($expected));
 
-    public function test_can_set_and_get_dynamic_setting()
-    {
-        $key = 'dynamic_test_key';
-        $value = 'dynamic_test_value';
-        
-        // Mock Storage to avoid file system issues
-        Storage::shouldReceive('put')
-            ->with(\Mockery::type('string'), \Mockery::type('string'))
-            ->andReturn(true);
-        
-        $this->configUtil->setSetting($key, $value);
-        
-        // Test passes if no exception is thrown
-        $this->assertTrue(true);
-    }
-
-    public function test_can_update_existing_setting()
-    {
-        $key = 'update_test_key';
-        $initialValue = 'initial_value';
-        $updatedValue = 'updated_value';
-        
-        // Mock Storage to avoid file system issues
-        Storage::shouldReceive('put')
-            ->with(\Mockery::type('string'), \Mockery::type('string'))
-            ->andReturn(true);
-        
-        // Set initial value
-        $this->configUtil->setSetting($key, $initialValue);
-        
-        // Update the value
-        $this->configUtil->setSetting($key, $updatedValue);
-        
-        // Test passes if no exception is thrown
-        $this->assertTrue(true);
+        $this->assertEquals($expected, $this->configUtil->getAllSettings('test_settings.json'));
     }
 }

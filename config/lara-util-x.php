@@ -10,6 +10,23 @@ return [
         'default_tags' => [],
     ],
 
+    'config' => [
+        // Where ConfigUtil persists dynamic settings. The path is relative to
+        // the disk root; null uses the default filesystem disk.
+        'disk' => null,
+        'path' => 'config/settings.json',
+    ],
+
+    'access_log' => [
+        // Rows older than this are removed by `php artisan model:prune`.
+        // Set to null to keep them indefinitely.
+        'retention_days' => 30,
+
+        // Redacted from the logged body and query string. Falls back to the
+        // audit exclusions when left null.
+        'excluded_attributes' => null,
+    ],
+
     'audit' => [
         'table' => 'model_audits',
 
@@ -72,7 +89,7 @@ return [
         'max_retries' => env('CLAUDE_MAX_RETRIES', 3),
         'retry_delay' => env('CLAUDE_RETRY_DELAY', 2),
         'base_url' => env('CLAUDE_BASE_URL', 'https://api.anthropic.com'),
-        'default_model' => env('CLAUDE_DEFAULT_MODEL', 'claude-3-5-sonnet-20241022'),
+        'default_model' => env('CLAUDE_DEFAULT_MODEL', 'claude-sonnet-5'),
         'default_temperature' => env('CLAUDE_DEFAULT_TEMPERATURE', 1.0),
         'default_max_tokens' => env('CLAUDE_DEFAULT_MAX_TOKENS', 1024),
         'default_top_p' => env('CLAUDE_DEFAULT_TOP_P', 1.0),

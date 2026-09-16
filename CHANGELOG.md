@@ -5,6 +5,47 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.4] - 2026-09-16
+
+A correctness and security release. Several utilities were unusable in a real
+application, and three components wrote credentials or crashed on first contact
+with production data.
+
+### Security
+
+- `AccessLogMiddleware` no longer stores request bodies verbatim. It recorded `json_encode($request->all())`, so placing it on a login route wrote plaintext passwords into `access_logs`. Credentials are now redacted using the same exclusion list as the audit trail, configurable via `lara-util-x.access_log.excluded_attributes`.
+- `AccessLogMiddleware` redacts credentials in the query string as well. `fullUrl()` persisted tokens passed as query parameters.
+- `AccessLog` is now prunable. The table previously grew without bound; `php artisan model:prune` removes rows older than `lara-util-x.access_log.retention_days` (30 by default, null to disable).
+- `FileProcessingTrait::uploadFile()` no longer reuses the client-supplied filename. Only the extension is kept, and the stored name is random.
+
+### Fixed
+
+- `SchedulerUtil` threw on any application with a scheduled task. `getNextRunDate()` and `isRunning()` do not exist on Laravel's `Event`; it now uses `isDue($app)` and inspects the overlapping mutex. It also dumped every event through `print_r` into the log on each call, which exhausted memory once real events were registered.
+- `SchedulerUtil::hasOverdueTasks()` could never return true, because it compared `nextRunDate()` (always in the future) against now.
+- `LoggingUtil` threw a `TypeError` whenever a channel was passed. `getLogger()` declared a `Monolog\Logger` return type, but `Log::channel()` returns `Illuminate\Log\Logger`; the return type is now the PSR interface.
+- `ConfigUtil` was non-functional. `getSetting()` always returned null, and `setSetting()` passed an absolute `storage_path()` to `Storage::put()`, so settings were written somewhere they could never be read back from. Settings now round-trip through a configurable disk and path, with dot-notation support.
+- `FeatureToggleUtil` copied a config file into the host application's `config/` at runtime, which fails on read-only deploys and is ignored once the config is cached. Defaults now come from the service provider.
+- `FeatureToggleUtil::isEnabled()` threw when a feature was declared as an array holding user or environment overrides, because it returned the array from a `bool` method. Overrides now resolve most-specific-first: user, then environment, then `enabled`.
+- `FilteringUtil` `ends_with` was wrong for repeated substrings. `"Smith Smith"` did not match `"Smith"`, because the first occurrence's offset was compared rather than the end of the string. `starts_with` was rewritten alongside it.
+- `CachingUtil` wrote tagged entries but read and forgot them untagged, so on a taggable store with `default_tags` configured every read missed.
+- `CrudController` accepted `?per_page` straight from the request, so `?per_page=1000000` returned the whole table. It is now clamped by `$maxPerPage` (100 by default), and generated controllers gained a `--max-per-page` option.
+- `CrudController` unique-rule rewriting on update broke when `unique:` was not the last rule or did not name its column. The rule segment is now rebuilt rather than having the id appended to the whole string.
+- The OpenAI provider, which is the default, failed with a bare "class not found" on a fresh install. `openai-php/client` has never been a dependency; it is now listed under `suggest`, and the provider raises an actionable error naming the package and the alternatives.
+- The Claude provider's default model was `claude-3-5-sonnet-20241022`, retired in October 2025, so every call with default configuration failed. It now defaults to `claude-sonnet-5`.
+- The Claude provider passed OpenAI-style messages through unchanged, but Anthropic takes `system` as a top-level parameter rather than a message role, so the unified interface broke as soon as a system prompt was sent. System messages are now lifted out of the conversation.
+- Publishing was broken in three ways: `__DIR__ . '\Models'` used a backslash and failed on Linux, the validation rule pointed at `RejectCommonPasswords_App.php`, which does not exist, and the service provider published itself into `app/Providers`, risking double registration. The provider is no longer publishable.
+- `XHelper::strSlugify()` returned an empty string for any non-Latin input, including Arabic. It now uses `Str::slug()`, which transliterates, and accepts a custom separator.
+- `FileProcessingTrait::getFile()` returned the literal string `"File not found"`, making a missing file indistinguishable from a file containing that text. It returns null.
+- Removed implicit-nullable parameters in `CachingUtil` and `ConfigUtil`, which raised deprecation notices on PHP 8.4.
+
+### Added
+
+- `access_log` and `config` configuration blocks.
+- `CrudController::$maxPerPage` and the `--max-per-page` option on `make:crud`.
+- `ConfigUtil::forgetSetting()`.
+- `SchedulerUtil::isDue()` and `isRunning()` as public methods.
+- Test coverage grew from 179 to 234. `XHelper`, `AccessLogMiddleware`, and the Claude provider had no tests at all; the `CachingUtil`, `ConfigUtil`, and `SchedulerUtil` suites were rewritten to exercise real behaviour rather than mocks that could not disagree with the implementation.
+
 ## [1.5.3] - 2026-08-24
 
 ### Security
@@ -124,6 +165,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Committed vendor directory.
 
+[1.5.4]: https://github.com/omarchouman/lara-util-x/compare/1.5.3...1.5.4
 [1.5.3]: https://github.com/omarchouman/lara-util-x/compare/1.5.2...1.5.3
 [1.5.2]: https://github.com/omarchouman/lara-util-x/compare/1.5.1...1.5.2
 [1.5.1]: https://github.com/omarchouman/lara-util-x/compare/1.4.0...1.5.1

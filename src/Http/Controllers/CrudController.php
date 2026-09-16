@@ -17,6 +17,7 @@ abstract class CrudController extends Controller
     protected array $sortableFields = [];
     protected array $relationships = [];
     protected int $perPage = 15;
+    protected int $maxPerPage = 100;
 
     public function __construct(Model $model)
     {
@@ -43,7 +44,7 @@ abstract class CrudController extends Controller
 
         $this->applySorting($query, $request);
 
-        $records = $query->paginate($request->get('per_page', $this->perPage));
+        $records = $query->paginate($this->resolvePerPage($request));
 
         return response()->json([
             'data' => $records->items(),
@@ -119,6 +120,20 @@ abstract class CrudController extends Controller
 
 
     /**
+     * Clamp ?per_page so a caller cannot ask for the entire table in one go.
+     */
+    protected function resolvePerPage(Request $request): int
+    {
+        $perPage = (int) $request->input('per_page', $this->perPage);
+
+        if ($perPage < 1) {
+            return $this->perPage;
+        }
+
+        return min($perPage, $this->maxPerPage);
+    }
+
+    /**
      * Sorting is restricted to $sortableFields so a request cannot order by
      * columns it should never see, such as password hashes or tokens.
      */
@@ -143,15 +158,42 @@ abstract class CrudController extends Controller
         }
 
         $rules = $this->validationRules;
-        
+
         if ($id) {
             foreach ($rules as $field => $rule) {
-                if (is_string($rule) && str_contains($rule, 'unique:')) {
-                    $rules[$field] = $rule . ',' . $id;
-                }
+                $rules[$field] = $this->ignoreCurrentRecord($rule, $field, $id);
             }
         }
 
         return $request->validate($rules);
+    }
+
+    /**
+     * Rewrite a unique rule so it ignores the record being updated.
+     *
+     * Appending the id to the whole rule string only works when unique: is the
+     * last rule and already names its column, so the segment is rebuilt instead.
+     */
+    protected function ignoreCurrentRecord(mixed $rule, string $field, mixed $id): mixed
+    {
+        if (! is_string($rule) || ! str_contains($rule, 'unique:')) {
+            return $rule;
+        }
+
+        $segments = explode('|', $rule);
+
+        foreach ($segments as $index => $segment) {
+            if (! str_starts_with($segment, 'unique:')) {
+                continue;
+            }
+
+            $parts = explode(',', substr($segment, strlen('unique:')));
+            $table = $parts[0] ?? '';
+            $column = $parts[1] ?? $field;
+
+            $segments[$index] = 'unique:' . $table . ',' . $column . ',' . $id;
+        }
+
+        return implode('|', $segments);
     }
 }

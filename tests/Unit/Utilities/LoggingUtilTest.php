@@ -190,4 +190,31 @@ class LoggingUtilTest extends TestCase
         // Test passes if no exception is thrown
         $this->assertTrue(true);
     }
+
+    public function test_named_channel_returns_an_illuminate_logger_not_a_monolog_one()
+    {
+        $this->assertInstanceOf(
+            \Illuminate\Log\Logger::class,
+            \Illuminate\Support\Facades\Log::channel('nulled')
+        );
+    }
+
+    public function test_logging_to_a_named_channel_does_not_throw()
+    {
+        // Declaring a Monolog\Logger return type made every channelled call a
+        // TypeError, because Log::channel() hands back an Illuminate\Log\Logger.
+        LoggingUtil::info('channelled message', ['a' => 'b'], 'nulled');
+        LoggingUtil::error('channelled error', [], 'nulled');
+
+        $this->assertTrue(true);
+    }
+
+    public function test_every_level_works_through_a_channel()
+    {
+        foreach (['debug', 'info', 'warning', 'error', 'critical'] as $level) {
+            LoggingUtil::{$level}("{$level} message", [], 'nulled');
+        }
+
+        $this->assertTrue(true);
+    }
 }
