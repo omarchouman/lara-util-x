@@ -171,8 +171,11 @@ abstract class CrudController extends Controller
     /**
      * Rewrite a unique rule so it ignores the record being updated.
      *
-     * Appending the id to the whole rule string only works when unique: is the
-     * last rule and already names its column, so the segment is rebuilt instead.
+     * Only the ignore-id slot is replaced. Appending the id to the whole rule
+     * string breaks when unique: is not the last rule, and rebuilding the
+     * segment from the table and column alone would discard any additional
+     * where clauses, silently turning per-tenant uniqueness into global
+     * uniqueness.
      */
     protected function ignoreCurrentRecord(mixed $rule, string $field, mixed $id): mixed
     {
@@ -188,10 +191,10 @@ abstract class CrudController extends Controller
             }
 
             $parts = explode(',', substr($segment, strlen('unique:')));
-            $table = $parts[0] ?? '';
-            $column = $parts[1] ?? $field;
+            $parts[1] ??= $field;
+            $parts[2] = $id;
 
-            $segments[$index] = 'unique:' . $table . ',' . $column . ',' . $id;
+            $segments[$index] = 'unique:' . implode(',', $parts);
         }
 
         return implode('|', $segments);

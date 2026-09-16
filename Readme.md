@@ -6,7 +6,7 @@
 
 LaraUtilX is a comprehensive Laravel package designed to supercharge your development experience by providing a suite of utility classes, helpful traits, middleware, and more. Whether you're a seasoned Laravel developer or just getting started, LaraUtilX offers a collection of tools to streamline common tasks and enhance the functionality of your Laravel applications.
 
-**Version:** 1.5.4  
+**Version:** 1.5.5  
 **Laravel Support:** Laravel 10, 11, 12, 13  
 **PHP Support:** PHP 8.1+  
 **License:** MIT
@@ -29,11 +29,11 @@ Explore full usage examples, configuration options, and best practices at:
 
 4. **CRUD Generator:** Scaffold a complete API resource in one command with `php artisan make:crud`. Generates the model, controller, and migration from a field definition, with support for relationships, soft deletes, searchable fields, and automatic route registration.
 
-5. **SchedulerMonitor:** Keep an eye on your scheduled tasks with the `SchedulerUtil` utility. Monitor upcoming scheduled events, check if tasks are overdue, and gain insights into the status of your scheduled jobs.
+5. **SchedulerMonitor:** Keep an eye on your scheduled tasks with the `SchedulerUtil` utility. Monitor upcoming scheduled events, check which tasks are due, and gain insights into the status of your scheduled jobs. Runs in a console context only, since Laravel does not populate the schedule during a web request.
 
 6. **FilteringUtil:** Effortlessly filter data based on specified criteria with the `FilteringUtil`. This utility provides a convenient way to filter collections or arrays based on field names, operators, and values.
 
-7. **AccessLogMiddleware:** LaraUtilX includes middleware components like the `AccessLogMiddleware` to log access to your application, adding an extra layer of security and accountability. Passwords and tokens are redacted from both the request body and the query string, and old rows are pruned by `php artisan model:prune`.
+7. **AccessLogMiddleware:** LaraUtilX includes middleware components like the `AccessLogMiddleware` to log access to your application, adding an extra layer of security and accountability. Passwords and tokens are redacted from both the request body and the query string, at any nesting depth, and old rows can be pruned on a schedule. See [Pruning access logs](#pruning-access-logs).
 
 8. **PaginationUtil:** Seamlessly handle paginated data with LaraUtilX's `PaginationUtil`. This utility simplifies the process of paginating query results, allowing you to customize the number of items per page, navigate through paginated results effortlessly, and present data in a user-friendly manner.
 
@@ -100,6 +100,45 @@ php artisan make:crud Post \
     --soft-deletes \
     --register-routes
 ```
+
+## Pruning access logs
+
+`AccessLog` is prunable, but `php artisan model:prune` on its own will never find it: without `--model` the command only scans `app/Models`, so a model living in `vendor/` is never discovered. Name it explicitly:
+
+```php
+use Illuminate\Support\Facades\Schedule;
+
+Schedule::command('model:prune', [
+    '--model' => [\LaraUtilX\Models\AccessLog::class],
+])->daily();
+```
+
+`--model` limits that run to the models you list, so keep this schedule separate from any `model:prune` you already run for your own models rather than merging them into one command.
+
+Retention is configurable, and `null` keeps rows indefinitely:
+
+```php
+'access_log' => [
+    'retention_days' => 30,
+],
+```
+
+## Customising package classes
+
+Package classes are not publishable. A published copy keeps its `LaraUtilX` namespace while landing in `app/`, where Composer's PSR-4 mapping expects `App\`, so the copy is never autoloaded and every call still resolves to the package. Extend or wrap instead:
+
+```php
+namespace App\Support;
+
+use LaraUtilX\Utilities\CachingUtil;
+
+class AppCache extends CachingUtil
+{
+    // override what you need
+}
+```
+
+Configuration, migrations, and the CRUD generator stubs remain publishable, since those are data rather than autoloaded classes.
 
 ## Sorting in CrudController
 

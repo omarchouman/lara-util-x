@@ -134,6 +134,30 @@ class CrudControllerTest extends TestCase
         $this->assertEquals('required|unique:crud_products,name,7|max:20', $rule);
     }
 
+    public function test_unique_rule_preserves_additional_where_clauses()
+    {
+        $controller = new ProductCrudController(new CrudProduct());
+
+        // Rebuilding from table and column alone dropped the tenant scope,
+        // silently turning per-tenant uniqueness into global uniqueness.
+        $rule = $controller->exposeIgnoreCurrentRecord(
+            'required|unique:users,email,NULL,id,tenant_id,7',
+            'email',
+            5
+        );
+
+        $this->assertEquals('required|unique:users,email,5,id,tenant_id,7', $rule);
+    }
+
+    public function test_unique_rule_replaces_an_existing_ignore_id()
+    {
+        $controller = new ProductCrudController(new CrudProduct());
+
+        $rule = $controller->exposeIgnoreCurrentRecord('unique:users,email,99', 'email', 5);
+
+        $this->assertEquals('unique:users,email,5', $rule);
+    }
+
     public function test_unique_rule_without_a_column_uses_the_field_name()
     {
         $controller = new ProductCrudController(new CrudProduct());

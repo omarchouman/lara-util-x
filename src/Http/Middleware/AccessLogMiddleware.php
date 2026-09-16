@@ -3,6 +3,7 @@
 namespace LaraUtilX\Http\Middleware;
 
 use Closure;
+use Illuminate\Support\Arr;
 use LaraUtilX\Models\AccessLog;
 
 class AccessLogMiddleware
@@ -10,7 +11,7 @@ class AccessLogMiddleware
     public function handle($request, Closure $next)
     {
         $excluded = $this->excludedAttributes();
-        $data     = $request->except($excluded);
+        $data     = $this->redact($request->all(), $excluded);
 
         $logData = [
             'ip' => $request->ip() ?: null,
@@ -37,8 +38,49 @@ class AccessLogMiddleware
     }
 
     /**
+     * Remove excluded attributes from the request body.
+     *
+     * Matching is case-insensitive and applies at any depth, because
+     * Request::except() only strips top-level keys and would leave a nested
+     * user[password] in place. Entries written in dot notation are still
+     * honoured, so a list may target one specific nested key.
+     */
+    protected function redact(array $data, array $excluded): array
+    {
+        if ($excluded === []) {
+            return $data;
+        }
+
+        $dotted = array_values(array_filter($excluded, fn ($key) => str_contains($key, '.')));
+
+        if ($dotted !== []) {
+            Arr::forget($data, $dotted);
+        }
+
+        $names = array_map('strtolower', array_diff($excluded, $dotted));
+
+        return $this->redactRecursive($data, $names);
+    }
+
+    private function redactRecursive(array $data, array $names): array
+    {
+        foreach ($data as $key => $value) {
+            if (is_string($key) && in_array(strtolower($key), $names, true)) {
+                unset($data[$key]);
+                continue;
+            }
+
+            if (is_array($value)) {
+                $data[$key] = $this->redactRecursive($value, $names);
+            }
+        }
+
+        return $data;
+    }
+
+    /**
      * Tokens are routinely passed in query strings, and fullUrl() would persist
-     * them verbatim.
+     * them verbatim. Parameter names are matched case-insensitively.
      */
     protected function redactQueryString(string $url, array $excluded): string
     {
@@ -54,12 +96,24 @@ class AccessLogMiddleware
             return $url;
         }
 
-        foreach (array_keys($params) as $key) {
-            if (in_array($key, $excluded, true)) {
+        $names = array_map('strtolower', $excluded);
+
+        return $base . '?' . http_build_query($this->redactParams($params, $names));
+    }
+
+    private function redactParams(array $params, array $names): array
+    {
+        foreach ($params as $key => $value) {
+            if (is_string($key) && in_array(strtolower($key), $names, true)) {
                 $params[$key] = '[redacted]';
+                continue;
+            }
+
+            if (is_array($value)) {
+                $params[$key] = $this->redactParams($value, $names);
             }
         }
 
-        return $base . '?' . http_build_query($params);
+        return $params;
     }
 }

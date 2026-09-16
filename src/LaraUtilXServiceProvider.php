@@ -93,31 +93,13 @@ class LaraUtilXServiceProvider extends ServiceProvider
             __DIR__ . '/../database/migrations' => database_path('migrations'),
         ], 'lara-util-x-migrations');
 
-        // Publish models
-        $this->publishes([
-            __DIR__ . '/Models' => app_path('Models'),
-        ], 'lara-util-x-models');
-
-        // Publish traits
-        $this->publishes([
-            __DIR__ . '/Traits/ApiResponseTrait.php' => app_path('Traits/ApiResponseTrait.php'),
-        ], 'lara-util-x-api-response-trait');
-
-        // Publish validation rules
-        $this->publishValidationRule();
+        // Classes are deliberately not publishable. A published copy keeps its
+        // LaraUtilX namespace while landing in app/, where Composer's PSR-4
+        // mapping expects App\, so the copy is never autoloaded and every call
+        // still resolves to the package. Extend or wrap the class instead.
 
         $this->loadClass(ApiResponseTrait::class);
         $this->loadClass(FileProcessingTrait::class);
-
-        // Publish utilities
-        $this->publishUtility('CachingUtil', 'caching');
-        $this->publishUtility('ConfigUtil', 'config');
-        $this->publishUtility('SchedulerUtil', 'scheduler');
-        $this->publishUtility('QueryParameterUtil', 'query-parameter');
-        $this->publishUtility('RateLimiterUtil', 'rate-limiter');
-        $this->publishUtility('PaginationUtil', 'paginator');
-        $this->publishUtility('FilteringUtil', 'filtering');
-        $this->publishUtility('LoggingUtil', 'logging');
 
         // Load utilities
         $classes = [
@@ -203,13 +185,6 @@ class LaraUtilXServiceProvider extends ServiceProvider
         });
     }
 
-    private function publishUtility(string $utility, string $name)
-    {
-        $this->publishes([
-            __DIR__ . '/Utilities/' . $utility . '.php' => app_path('Utilities/' . $utility . '.php'),
-        ], 'lara-util-x-' . $name);
-    }
-
     /**
      * Register custom validation rules.
      */
@@ -227,15 +202,5 @@ class LaraUtilXServiceProvider extends ServiceProvider
         Validator::replacer('reject_common_passwords', function ($message, $attribute, $rule, $parameters) {
             return str_replace(':attribute', $attribute, $message);
         });
-    }
-
-    /**
-     * Publish validation rules with correct namespace for app directory.
-     */
-    private function publishValidationRule(): void
-    {
-        $this->publishes([
-            __DIR__ . '/Rules/RejectCommonPasswords.php' => app_path('Rules/RejectCommonPasswords.php'),
-        ], 'lara-util-x-validation-rules');
     }
 }

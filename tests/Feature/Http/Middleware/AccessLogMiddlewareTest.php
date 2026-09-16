@@ -132,4 +132,109 @@ class AccessLogMiddlewareTest extends TestCase
 
         $this->assertEquals(0, (new AccessLog())->prunable()->count());
     }
+
+    // -----------------------------------------------------------------------
+    // Coverage of credential field names (1.5.5)
+    // -----------------------------------------------------------------------
+
+    public function test_current_password_is_redacted()
+    {
+        // Breeze's password-update form posts current_password.
+        $this->handle(Request::create('/user/password', 'PUT', [
+            'current_password' => 'the-old-one',
+            'password' => 'the-new-one',
+            'password_confirmation' => 'the-new-one',
+        ]));
+
+        // Every field on the form is a credential, so nothing survives
+        // redaction and only the request metadata is recorded.
+        $log = AccessLog::first();
+
+        $this->assertNull($log->request_data);
+        $this->assertEquals('PUT', $log->method);
+    }
+
+    public function test_additional_credential_fields_are_redacted()
+    {
+        $this->handle(Request::create('/x', 'POST', [
+            'new_password' => 'a',
+            'api_key' => 'b',
+            'client_secret' => 'c',
+            'keep' => 'd',
+        ]));
+
+        $data = json_decode(AccessLog::first()->request_data, true);
+
+        foreach (['new_password', 'api_key', 'client_secret'] as $field) {
+            $this->assertArrayNotHasKey($field, $data);
+        }
+
+        $this->assertEquals('d', $data['keep']);
+    }
+
+    // -----------------------------------------------------------------------
+    // Nesting and casing
+    // -----------------------------------------------------------------------
+
+    public function test_nested_credentials_are_redacted()
+    {
+        // except() only strips top-level keys, so this used to survive.
+        $this->handle(Request::create('/register', 'POST', [
+            'user' => ['email' => 'user@example.com', 'password' => 'hunter2'],
+        ]));
+
+        $data = json_decode(AccessLog::first()->request_data, true);
+
+        $this->assertArrayNotHasKey('password', $data['user']);
+        $this->assertEquals('user@example.com', $data['user']['email']);
+    }
+
+    public function test_deeply_nested_credentials_are_redacted()
+    {
+        $this->handle(Request::create('/x', 'POST', [
+            'a' => ['b' => ['c' => ['api_key' => 'leaked', 'safe' => 'kept']]],
+        ]));
+
+        $data = json_decode(AccessLog::first()->request_data, true);
+
+        $this->assertArrayNotHasKey('api_key', $data['a']['b']['c']);
+        $this->assertEquals('kept', $data['a']['b']['c']['safe']);
+    }
+
+    public function test_body_key_casing_is_ignored()
+    {
+        $this->handle(Request::create('/x', 'POST', [
+            'Password' => 'one',
+            'API_KEY' => 'two',
+        ]));
+
+        $this->assertNull(AccessLog::first()->request_data);
+    }
+
+    public function test_query_string_matching_is_case_insensitive()
+    {
+        $this->handle(Request::create('/auth?Token=leaked&API_KEY=alsoleaked&page=2', 'GET'));
+
+        $url = AccessLog::first()->url;
+
+        $this->assertStringNotContainsString('leaked', $url);
+        $this->assertStringNotContainsString('alsoleaked', $url);
+        $this->assertStringContainsString('page=2', $url);
+    }
+
+    public function test_dotted_exclusions_target_one_nested_key()
+    {
+        Config::set('lara-util-x.access_log.excluded_attributes', ['user.pin']);
+
+        $this->handle(Request::create('/x', 'POST', [
+            'user' => ['pin' => 'hidden', 'name' => 'kept'],
+            'pin' => 'top-level-kept',
+        ]));
+
+        $data = json_decode(AccessLog::first()->request_data, true);
+
+        $this->assertArrayNotHasKey('pin', $data['user']);
+        $this->assertEquals('kept', $data['user']['name']);
+        $this->assertEquals('top-level-kept', $data['pin']);
+    }
 }

@@ -30,14 +30,21 @@ return [
     'audit' => [
         'table' => 'model_audits',
 
-        // Never written to the audit trail by the Auditable trait.
+        // Never written to the audit trail by the Auditable trait, and never
+        // written to the access log. Matched case-insensitively at any depth,
+        // so a nested user[password] is redacted by the bare "password" entry.
         'excluded_attributes' => [
             'password',
             'password_confirmation',
+            'current_password',
+            'new_password',
+            'new_password_confirmation',
             'remember_token',
             'api_token',
             'access_token',
             'refresh_token',
+            'api_key',
+            'client_secret',
             'secret',
             'token',
         ],
