@@ -3,6 +3,7 @@
 namespace LaraUtilX\Utilities;
 
 use Illuminate\Contracts\Filesystem\Filesystem;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Storage;
 
 class ConfigUtil
@@ -66,7 +67,9 @@ class ConfigUtil
     {
         $settings = $this->getAllSettings();
 
-        unset($settings[$key]);
+        // unset() cannot reach a dotted key, which getSetting() and
+        // setSetting() both accept.
+        Arr::forget($settings, $key);
 
         $this->disk()->put(
             $this->settingsPath(),

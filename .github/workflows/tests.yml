@@ -1,0 +1,65 @@
+name: Tests
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Runs on 8.1 so the package's declared PHP floor is exercised.
+          - laravel: 10
+            testbench: ^8.37
+            php: '8.1'
+            # Laravel 10 is end of life and every release carries an unpatched
+            # advisory, so Composer's audit blocks it unless told otherwise.
+            allow-insecure: true
+          - laravel: 11
+            testbench: ^9.0
+            php: '8.2'
+            allow-insecure: true
+          - laravel: 12
+            testbench: ^10.0
+            php: '8.3'
+            allow-insecure: false
+          - laravel: 13
+            testbench: ^11.0
+            php: '8.4'
+            allow-insecure: false
+
+    name: Laravel ${{ matrix.laravel }} / PHP ${{ matrix.php }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: dom, curl, libxml, mbstring, zip, pdo, sqlite, pdo_sqlite
+          coverage: none
+
+      - name: Allow end-of-life Laravel releases
+        if: matrix.allow-insecure
+        run: composer config audit.block-insecure false
+
+      - name: Install dependencies
+        run: |
+          composer require --dev "orchestra/testbench:${{ matrix.testbench }}" --no-interaction --no-update
+          composer update --prefer-dist --no-interaction --no-progress
+
+      - name: Report resolved versions
+        run: composer show | grep -E '^(laravel/framework|orchestra/testbench|phpunit/phpunit) '
+
+      - name: Run tests
+        run: ./vendor/bin/phpunit --colors=never
+
+      - name: Run tests in random order
+        run: ./vendor/bin/phpunit --colors=never --order-by=random

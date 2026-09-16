@@ -5,6 +5,34 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.5] - 2026-09-17
+
+A follow-up to 1.5.4 closing gaps that release left behind, including one
+regression it introduced.
+
+### Security
+
+- `current_password` was not redacted from the access log. It is the field Laravel Breeze's password-update form submits, so a password-change route still wrote the user's existing password into `access_logs` in plaintext. `current_password`, `new_password`, `new_password_confirmation`, `api_key`, and `client_secret` are now excluded by default.
+- Access log redaction now applies at any nesting depth. `Request::except()` only strips top-level keys, so a nested `user[password]` survived unless the exclusion list happened to name `user.password`. Dot-notation entries still work for targeting one specific nested key.
+- Query-string parameter names are now matched case-insensitively, so `?Token=` is redacted alongside `?token=`.
+
+### Fixed
+
+- Unique-rule rewriting on update discarded trailing where clauses, a regression introduced in 1.5.4. `required|unique:users,email,NULL,id,tenant_id,7` became `required|unique:users,email,5`, silently turning per-tenant uniqueness into global uniqueness. Only the ignore-id slot is replaced now.
+- `ConfigUtil::forgetSetting()` ignored dot notation. It used `unset()`, which cannot reach a nested key, so `forgetSetting('mail.from')` silently did nothing. It now uses `Arr::forget()`.
+- Documented the correct pruning schedule for access logs. Without `--model`, `php artisan model:prune` only scans `app/Models`, so a model living in `vendor/` is never discovered and the 1.5.4 documentation's claim was false.
+
+### Changed
+
+- Package classes are no longer publishable. A published copy kept its `LaraUtilX` namespace while landing in `app/`, where Composer's PSR-4 mapping expects `App\`, so the copy was never autoloaded and every call still resolved to the package. Removing the tags changes no runtime behaviour. `lara-util-x-config`, `lara-util-x-feature-toggles`, `lara-util-x-migrations`, and `lara-util-x-stubs` are unaffected.
+- `SchedulerUtil::hasOverdueTasks()` renamed to `hasDueTasks()`. `Event::isDue()` asks whether a cron expression matches the current minute, so the method reported "due now", not "overdue", and an `everyMinute()` task made it true almost constantly. The old name still works and delegates to the new one, but is deprecated.
+- Documented that `SchedulerUtil` only works in a console context. Laravel registers schedules through `Artisan::starting()` and `afterResolving(ConsoleKernel::class)`, neither of which fires during a web request, so calling it from an HTTP route returns an empty schedule rather than an error. This has always been true on every supported Laravel version.
+
+### Added
+
+- GitHub Actions workflow running the suite against Laravel 10, 11, 12, and 13 on every push and pull request. Laravel 10 runs on PHP 8.1 so the declared PHP floor is exercised rather than assumed, and each row runs the suite in both declaration and random order.
+- Test coverage grew from 234 to 245.
+
 ## [1.5.4] - 2026-09-16
 
 A correctness and security release. Several utilities were unusable in a real
@@ -165,6 +193,7 @@ with production data.
 
 - Committed vendor directory.
 
+[1.5.5]: https://github.com/omarchouman/lara-util-x/compare/1.5.4...1.5.5
 [1.5.4]: https://github.com/omarchouman/lara-util-x/compare/1.5.3...1.5.4
 [1.5.3]: https://github.com/omarchouman/lara-util-x/compare/1.5.2...1.5.3
 [1.5.2]: https://github.com/omarchouman/lara-util-x/compare/1.5.1...1.5.2

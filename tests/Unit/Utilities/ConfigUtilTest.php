@@ -85,6 +85,18 @@ class ConfigUtilTest extends TestCase
         $this->assertNull($this->configUtil->getSetting('temporary'));
     }
 
+    public function test_can_forget_a_dotted_setting()
+    {
+        $this->configUtil->setSetting('mail.from', 'hello@example.com');
+        $this->configUtil->setSetting('mail.reply_to', 'reply@example.com');
+
+        // unset($settings['mail.from']) could never reach a nested key.
+        $this->configUtil->forgetSetting('mail.from');
+
+        $this->assertNull($this->configUtil->getSetting('mail.from'));
+        $this->assertEquals('reply@example.com', $this->configUtil->getSetting('mail.reply_to'));
+    }
+
     public function test_settings_file_lands_at_the_configured_path()
     {
         $this->configUtil->setSetting('anything', 'value');

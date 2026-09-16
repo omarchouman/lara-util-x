@@ -32,7 +32,7 @@ class SchedulerUtilTest extends TestCase
 
         $this->assertIsArray($summary);
         $this->assertEmpty($summary);
-        $this->assertFalse($this->schedulerUtil->hasOverdueTasks());
+        $this->assertFalse($this->schedulerUtil->hasDueTasks());
     }
 
     // -----------------------------------------------------------------------
@@ -69,16 +69,24 @@ class SchedulerUtilTest extends TestCase
         $this->assertTrue($summary[0]['is_due']);
     }
 
-    public function test_has_overdue_tasks_detects_a_due_event()
+    public function test_has_due_tasks_detects_a_due_event()
     {
         $this->schedule()->command('list')->everyMinute();
 
-        // Before 1.5.4 this compared nextRunDate() against now, which is always
-        // in the future, so it could never report true.
-        $this->assertTrue($this->schedulerUtil->hasOverdueTasks());
+        $this->assertTrue($this->schedulerUtil->hasDueTasks());
     }
 
-    public function test_has_overdue_tasks_is_false_when_nothing_is_due()
+    public function test_has_overdue_tasks_still_delegates_for_compatibility()
+    {
+        $this->schedule()->command('list')->everyMinute();
+
+        $this->assertEquals(
+            $this->schedulerUtil->hasDueTasks(),
+            $this->schedulerUtil->hasOverdueTasks()
+        );
+    }
+
+    public function test_has_due_tasks_is_false_when_nothing_is_due()
     {
         // Runs once a year, so it is almost never due.
         $this->schedule()->command('inspire')->yearlyOn(1, 1, '00:00');
@@ -86,7 +94,7 @@ class SchedulerUtilTest extends TestCase
         $summary = $this->schedulerUtil->getScheduleSummary();
 
         $this->assertFalse($summary[0]['is_due']);
-        $this->assertFalse($this->schedulerUtil->hasOverdueTasks());
+        $this->assertFalse($this->schedulerUtil->hasDueTasks());
     }
 
     public function test_event_without_overlapping_protection_is_not_running()
