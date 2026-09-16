@@ -43,14 +43,22 @@ class FileProcessingTraitTest extends TestCase
         $this->assertEquals($content, $result);
     }
 
-    public function test_returns_file_not_found_for_non_existent_file()
+    public function test_returns_null_for_non_existent_file()
     {
         $filename = 'non_existent.txt';
         $directory = 'uploads';
-        
+
         $result = $this->getFile($filename, $directory);
-        
-        $this->assertEquals('File not found', $result);
+
+        $this->assertNull($result);
+    }
+
+    public function test_missing_file_is_distinguishable_from_its_contents()
+    {
+        Storage::put('uploads/decoy.txt', 'File not found');
+
+        $this->assertEquals('File not found', $this->getFile('decoy.txt'));
+        $this->assertNull($this->getFile('absent.txt'));
     }
 
     public function test_can_upload_single_file()
@@ -61,8 +69,19 @@ class FileProcessingTraitTest extends TestCase
         $filename = $this->uploadFile($file, $directory);
         
         $this->assertIsString($filename);
-        $this->assertStringContainsString('test.pdf', $filename);
+        $this->assertStringEndsWith('.pdf', $filename);
         $this->assertTrue(Storage::disk('local')->exists($directory . '/' . $filename));
+    }
+
+    public function test_stored_name_does_not_reuse_the_client_filename()
+    {
+        $file = UploadedFile::fake()->create('../../etc/passwd.pdf', 10);
+
+        $filename = $this->uploadFile($file, 'uploads');
+
+        $this->assertStringNotContainsString('passwd', $filename);
+        $this->assertStringNotContainsString('..', $filename);
+        $this->assertStringEndsWith('.pdf', $filename);
     }
 
     public function test_uploaded_file_has_unique_name()

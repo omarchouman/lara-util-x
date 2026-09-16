@@ -36,9 +36,13 @@ class XHelper
         return $matches[1] ?? null;
     }
 
-    public static function strSlugify(string $string): string
+    /**
+     * Slugify a string. Non-ASCII input is transliterated rather than stripped,
+     * so scripts such as Arabic produce a usable slug instead of an empty one.
+     */
+    public static function strSlugify(string $string, string $separator = '-'): string
     {
-        return strtolower(trim(preg_replace('/[^A-Za-z0-9-]+/', '-', $string), '-'));
+        return Str::slug($string, $separator);
     }
 
     // ------------------------

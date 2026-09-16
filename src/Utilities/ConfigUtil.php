@@ -2,7 +2,7 @@
 
 namespace LaraUtilX\Utilities;
 
-use Illuminate\Support\Facades\Config;
+use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Support\Facades\Storage;
 
 class ConfigUtil
@@ -10,64 +10,93 @@ class ConfigUtil
     /**
      * Get all dynamic configuration settings.
      *
-     * @param  string  $path
-     * @param  string  $key
+     * @param  string|null  $path  Path on the configured disk, relative to its root.
      * @return array
      */
-    public function getAllSettings(string $path = null, string $key = null)
+    public function getAllSettings(?string $path = null): array
     {
-        $filePath = $path ? $path : config('app');
+        $path = $path ?: $this->settingsPath();
+        $disk = $this->disk();
 
-        if($filePath == config('app')) {
-            $settings = $this->getAllAppSettings();
-            return $settings[$key] ?? null;
+        if (! $disk->exists($path)) {
+            return [];
         }
 
-        if (Storage::exists($filePath)) {
-            $settingsJson = Storage::get($filePath);
-            return json_decode($settingsJson, true);
-        }
-
-        return [];
+        return json_decode($disk->get($path), true) ?: [];
     }
 
     /**
-     * Get a specific dynamic configuration setting.
+     * Get a specific dynamic configuration setting. Supports dot notation.
      *
      * @param  string  $key
+     * @param  mixed  $default
      * @return mixed
      */
-    public function getSetting(string $key)
+    public function getSetting(string $key, mixed $default = null): mixed
     {
-        $settings = $this->getAllSettings();
-
-        return $settings[$key] ?? null;
+        return data_get($this->getAllSettings(), $key, $default);
     }
 
     /**
-     * Set or update a dynamic configuration setting.
+     * Set or update a dynamic configuration setting. Supports dot notation.
      *
      * @param  string  $key
      * @param  mixed  $value
      * @return void
      */
-    public function setSetting(string $key, mixed $value)
+    public function setSetting(string $key, mixed $value): void
     {
         $settings = $this->getAllSettings();
-        $settings[$key] = $value;
 
-        $filePath = storage_path('app/config/settings.json');
-        Storage::put($filePath, json_encode($settings));
+        data_set($settings, $key, $value);
+
+        $this->disk()->put(
+            $this->settingsPath(),
+            json_encode($settings, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)
+        );
     }
 
+    /**
+     * Remove a dynamic configuration setting.
+     *
+     * @param  string  $key
+     * @return void
+     */
+    public function forgetSetting(string $key): void
+    {
+        $settings = $this->getAllSettings();
+
+        unset($settings[$key]);
+
+        $this->disk()->put(
+            $this->settingsPath(),
+            json_encode($settings, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)
+        );
+    }
 
     /**
      * Get all application settings.
      *
      * @return array
      */
-    public function getAllAppSettings()
+    public function getAllAppSettings(): array
     {
-        return config('app');
+        return config('app', []);
+    }
+
+    private function disk(): Filesystem
+    {
+        $disk = config('lara-util-x.config.disk');
+
+        return $disk ? Storage::disk($disk) : Storage::disk();
+    }
+
+    /**
+     * Path is relative to the disk root. An absolute path would be appended to
+     * that root and silently written somewhere unreadable.
+     */
+    private function settingsPath(): string
+    {
+        return config('lara-util-x.config.path', 'config/settings.json');
     }
 }

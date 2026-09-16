@@ -22,6 +22,52 @@ class FilteringUtilTest extends TestCase
         ]);
     }
 
+    public function test_ends_with_matches_a_repeated_substring()
+    {
+        // "Smith Smith" ends with "Smith", but the old implementation compared
+        // the first occurrence's offset and returned false.
+        $collection = collect([
+            ['name' => 'Smith Smith'],
+            ['name' => 'Jane Smith'],
+            ['name' => 'Smith Jones'],
+        ]);
+
+        $result = FilteringUtil::filter($collection, 'name', 'ends_with', 'Smith');
+
+        $this->assertCount(2, $result);
+        $this->assertEquals(
+            ['Smith Smith', 'Jane Smith'],
+            $result->pluck('name')->values()->all()
+        );
+    }
+
+    public function test_ends_with_is_case_insensitive()
+    {
+        $result = FilteringUtil::filter($this->testCollection, 'name', 'ends_with', 'smith');
+
+        $this->assertCount(1, $result);
+    }
+
+    public function test_ends_with_does_not_match_a_middle_occurrence()
+    {
+        $collection = collect([['name' => 'Smith Jones']]);
+
+        $this->assertCount(0, FilteringUtil::filter($collection, 'name', 'ends_with', 'Smith'));
+    }
+
+    public function test_starts_with_matches_a_repeated_substring()
+    {
+        $collection = collect([
+            ['name' => 'Smith Smith'],
+            ['name' => 'Jane Smith'],
+        ]);
+
+        $result = FilteringUtil::filter($collection, 'name', 'starts_with', 'Smith');
+
+        $this->assertCount(1, $result);
+        $this->assertEquals('Smith Smith', $result->first()['name']);
+    }
+
     public function test_can_filter_by_equals_operator()
     {
         $result = FilteringUtil::filter($this->testCollection, 'age', 'equals', 25);

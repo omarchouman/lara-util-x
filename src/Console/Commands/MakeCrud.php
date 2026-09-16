@@ -18,6 +18,7 @@ class MakeCrud extends Command
         {--searchable= : Comma-separated fields to enable search on (e.g. title,body)}
         {--sortable= : Comma-separated fields to allow sorting on (defaults to the declared fields)}
         {--per-page=15 : Default items per page for pagination}
+        {--max-per-page=100 : Maximum items per page a request may ask for}
         {--register-routes : Automatically append the apiResource route to routes/api.php}
         {--migrate : Run php artisan migrate after generating the migration}
         {--force : Overwrite existing files}';
@@ -423,7 +424,12 @@ PHP;
         $lines[] = "            \$query->orderBy(\$request->input('sort_by'), \$direction);";
         $lines[] = "        }";
         $lines[] = '';
-        $lines[] = "        \$records = \$query->paginate(\$request->input('per_page', {$perPage}));";
+        $maxPerPage = max($perPage, (int) $this->option('max-per-page'));
+
+        $lines[] = "        \$perPage = (int) \$request->input('per_page', {$perPage});";
+        $lines[] = "        \$perPage = \$perPage < 1 ? {$perPage} : min(\$perPage, {$maxPerPage});";
+        $lines[] = '';
+        $lines[] = "        \$records = \$query->paginate(\$perPage);";
         $lines[] = '';
         $lines[] = "        return response()->json([";
         $lines[] = "            'data' => \$records->items(),";

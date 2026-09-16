@@ -4,27 +4,29 @@ namespace LaraUtilX\Traits;
 
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Str;
 
 trait FileProcessingTrait
 {
     /**
      * Get file contents.
      *
+     * Returns null when the file does not exist, so a missing file cannot be
+     * confused with a file whose contents happen to say so.
+     *
      * @param string $filename
      * @param string $directory
-     * @return string
+     * @return string|null
      */
-    public function getFile(string $filename, string $directory = 'uploads')
+    public function getFile(string $filename, string $directory = 'uploads'): ?string
     {
         $filePath = $directory . '/' . $filename;
 
         if (Storage::exists($filePath)) {
-            $fileContents = Storage::get($filePath);
-
-            return $fileContents;
+            return Storage::get($filePath);
         }
 
-        return "File not found";
+        return null;
     }
 
     /**
@@ -36,7 +38,10 @@ trait FileProcessingTrait
      */
     public function uploadFile(UploadedFile $file, string $directory = 'uploads')
     {
-        $filename = uniqid() . '_' . $file->getClientOriginalName();
+        // The client-supplied name is never reused, only its extension, so a
+        // hostile filename cannot influence where the file lands.
+        $extension = $file->getClientOriginalExtension() ?: $file->guessExtension();
+        $filename  = Str::random(40) . ($extension ? '.' . $extension : '');
 
         $file->storeAs($directory, $filename);
 

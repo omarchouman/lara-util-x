@@ -37,5 +37,11 @@ abstract class TestCase extends OrchestraTestCase
         
         // Setup queue to use sync driver
         $app['config']->set('queue.default', 'sync');
+
+        // A real, side-effect-free log channel for exercising channelled logging
+        $app['config']->set('logging.channels.nulled', [
+            'driver' => 'monolog',
+            'handler' => \Monolog\Handler\NullHandler::class,
+        ]);
     }
 }

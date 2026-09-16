@@ -90,11 +90,17 @@ class ClaudeProvider implements LLMProviderInterface
         ?float $topP,
         ?bool $jsonMode
     ): array {
+        [$system, $conversation] = $this->extractSystemPrompt($messages);
+
         $payload = [
             'model' => $modelName,
-            'messages' => $messages,
+            'messages' => $conversation,
             'max_tokens' => $maxTokens ?? 1024,
         ];
+
+        if ($system !== null) {
+            $payload['system'] = $system;
+        }
 
         if ($temperature !== null) {
             $payload['temperature'] = $temperature;
@@ -112,6 +118,34 @@ class ClaudeProvider implements LLMProviderInterface
         // These parameters are ignored for Claude
 
         return $payload;
+    }
+
+    /**
+     * Anthropic takes the system prompt as a top-level parameter rather than a
+     * message role, so OpenAI-style system messages are lifted out here. This
+     * is what keeps the unified interface working across providers.
+     *
+     * @param  array  $messages
+     * @return array{0: string|null, 1: array}
+     */
+    private function extractSystemPrompt(array $messages): array
+    {
+        $system = [];
+        $conversation = [];
+
+        foreach ($messages as $message) {
+            if (($message['role'] ?? null) === 'system') {
+                $system[] = $message['content'] ?? '';
+                continue;
+            }
+
+            $conversation[] = $message;
+        }
+
+        return [
+            $system === [] ? null : implode("\n\n", array_filter($system)),
+            array_values($conversation),
+        ];
     }
 
     /**

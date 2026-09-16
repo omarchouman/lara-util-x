@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\Config;
 use Monolog\Formatter\JsonFormatter;
 use Monolog\Handler\StreamHandler;
 use Monolog\Logger;
+use Psr\Log\LoggerInterface;
 use LaraUtilX\Enums\LogLevel;
 
 class LoggingUtil
@@ -16,10 +17,13 @@ class LoggingUtil
     /**
      * Initialize a custom logger instance if needed.
      *
+     * Log::channel() hands back an Illuminate\Log\Logger, not a Monolog one, so
+     * the return type is the PSR interface both satisfy.
+     *
      * @param string|null $channel Custom log channel
-     * @return Logger
+     * @return LoggerInterface
      */
-    private static function getLogger(?string $channel = null): Logger
+    private static function getLogger(?string $channel = null): LoggerInterface
     {
         if ($channel) {
             return Log::channel($channel);

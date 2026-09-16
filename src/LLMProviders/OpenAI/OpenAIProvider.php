@@ -19,6 +19,16 @@ class OpenAIProvider implements LLMProviderInterface
         int $maxRetries = 3,
         int $retryDelay = 2
     ) {
+        // openai-php/client is an optional dependency, so say so plainly rather
+        // than letting a bare "class not found" surface from the container.
+        if (! class_exists(\OpenAI::class)) {
+            throw new \RuntimeException(
+                'The OpenAI provider requires the openai-php/client package. '
+                . 'Install it with "composer require openai-php/client", '
+                . 'or set LLM_DEFAULT_PROVIDER to "gemini" or "claude".'
+            );
+        }
+
         $this->client = \OpenAI::client($apiKey);
         $this->maxRetries = $maxRetries;
         $this->retryDelay = $retryDelay;

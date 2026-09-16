@@ -73,11 +73,6 @@ class LaraUtilXServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        // Publish Service Provider
-        $this->publishes([
-            __DIR__ . '/LaraUtilXServiceProvider.php' => app_path('Providers/LaraUtilXServiceProvider.php'),
-        ], 'lara-util-x');
-
         // Load migrations
         $this->loadMigrationsFrom(__DIR__ . '/../database/migrations');
 
@@ -91,6 +86,7 @@ class LaraUtilXServiceProvider extends ServiceProvider
         ], 'lara-util-x-feature-toggles');
 
         $this->mergeConfigFrom(__DIR__ . '/../config/lara-util-x.php', 'lara-util-x');
+        $this->mergeConfigFrom(__DIR__ . '/../config/feature-toggles.php', 'feature-toggles');
 
         // Publish migrations
         $this->publishes([
@@ -99,7 +95,7 @@ class LaraUtilXServiceProvider extends ServiceProvider
 
         // Publish models
         $this->publishes([
-            __DIR__ . '\Models' => app_path('Models'),
+            __DIR__ . '/Models' => app_path('Models'),
         ], 'lara-util-x-models');
 
         // Publish traits
@@ -239,7 +235,7 @@ class LaraUtilXServiceProvider extends ServiceProvider
     private function publishValidationRule(): void
     {
         $this->publishes([
-            __DIR__ . '/Rules/RejectCommonPasswords_App.php' => app_path('Rules/RejectCommonPasswords.php'),
+            __DIR__ . '/Rules/RejectCommonPasswords.php' => app_path('Rules/RejectCommonPasswords.php'),
         ], 'lara-util-x-validation-rules');
     }
 }

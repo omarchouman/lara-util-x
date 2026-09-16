@@ -100,11 +100,56 @@ class FeatureToggleUtilTest extends TestCase
             File::delete($configPath);
         }
         
-        $this->assertFalse(File::exists($configPath));
-        
-        // Call isEnabled which should create the config file
         FeatureToggleUtil::isEnabled('test_feature');
-        
-        $this->assertTrue(File::exists($configPath));
+
+        // Writing into config/ at runtime breaks read-only deploys and is
+        // ignored once the config is cached, so defaults come from the
+        // service provider's mergeConfigFrom instead.
+        $this->assertFalse(File::exists($configPath));
+    }
+
+    public function test_array_feature_falls_back_to_enabled_key()
+    {
+        Auth::shouldReceive('user')->andReturn(null);
+
+        Config::set('feature-toggles.beta', ['enabled' => true, 'user' => []]);
+
+        $this->assertTrue(FeatureToggleUtil::isEnabled('beta'));
+    }
+
+    public function test_array_feature_without_enabled_key_is_disabled()
+    {
+        Auth::shouldReceive('user')->andReturn(null);
+
+        Config::set('feature-toggles.beta', ['user' => [7 => true]]);
+
+        $this->assertFalse(FeatureToggleUtil::isEnabled('beta'));
+    }
+
+    public function test_array_feature_returns_a_boolean_not_the_array()
+    {
+        Auth::shouldReceive('user')->andReturn(null);
+
+        Config::set('feature-toggles.beta', [
+            'enabled' => 1,
+            'environment' => ['production' => false],
+        ]);
+
+        $this->assertIsBool(FeatureToggleUtil::isEnabled('beta'));
+    }
+
+    public function test_user_override_wins_over_environment_override()
+    {
+        $user = new \stdClass();
+        $user->id = 9;
+        Auth::shouldReceive('user')->andReturn($user);
+
+        Config::set('feature-toggles.beta', [
+            'enabled' => false,
+            'user' => [9 => true],
+            'environment' => ['testing' => false],
+        ]);
+
+        $this->assertTrue(FeatureToggleUtil::isEnabled('beta'));
     }
 }

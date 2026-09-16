@@ -6,7 +6,7 @@
 
 LaraUtilX is a comprehensive Laravel package designed to supercharge your development experience by providing a suite of utility classes, helpful traits, middleware, and more. Whether you're a seasoned Laravel developer or just getting started, LaraUtilX offers a collection of tools to streamline common tasks and enhance the functionality of your Laravel applications.
 
-**Version:** 1.5.3  
+**Version:** 1.5.4  
 **Laravel Support:** Laravel 10, 11, 12, 13  
 **PHP Support:** PHP 8.1+  
 **License:** MIT
@@ -33,7 +33,7 @@ Explore full usage examples, configuration options, and best practices at:
 
 6. **FilteringUtil:** Effortlessly filter data based on specified criteria with the `FilteringUtil`. This utility provides a convenient way to filter collections or arrays based on field names, operators, and values.
 
-7. **AccessLogMiddleware:** LaraUtilX includes middleware components like the `AccessLogMiddleware` to log access to your application, adding an extra layer of security and accountability.
+7. **AccessLogMiddleware:** LaraUtilX includes middleware components like the `AccessLogMiddleware` to log access to your application, adding an extra layer of security and accountability. Passwords and tokens are redacted from both the request body and the query string, and old rows are pruned by `php artisan model:prune`.
 
 8. **PaginationUtil:** Seamlessly handle paginated data with LaraUtilX's `PaginationUtil`. This utility simplifies the process of paginating query results, allowing you to customize the number of items per page, navigate through paginated results effortlessly, and present data in a user-friendly manner.
 
@@ -41,10 +41,11 @@ Explore full usage examples, configuration options, and best practices at:
     
 10. **ConfigUtil:** Manage your Laravel configuration settings effortlessly with the `ConfigUtil`. Retrieve, set defaults, and dynamically manipulate configuration data. Simplify the way you interact with your application's configuration, ensuring a clean and organized approach.
 
-11. **LLM Providers:** Effortlessly integrate advanced AI-powered chat completions into your Laravel application with our LLM providers. Choose between OpenAI's GPT models or Google's Gemini models through a unified interface. Both providers support all major chat parameters, automatic retry logic, and structured responses. Generate dynamic, context-aware text completions for your users with just a few lines of code.
+11. **LLM Providers:** Effortlessly integrate advanced AI-powered chat completions into your Laravel application with our LLM providers. Choose between OpenAI, Google Gemini, and Anthropic Claude through a unified interface. The OpenAI provider additionally requires `composer require openai-php/client`. Both providers support all major chat parameters, automatic retry logic, and structured responses. Generate dynamic, context-aware text completions for your users with just a few lines of code.
 
     - **OpenAIProvider:** Interact with OpenAI's GPT models (GPT-3.5, GPT-4, etc.)
     - **GeminiProvider:** Interact with Google's Gemini models (Gemini 2.0 Flash, etc.)
+    - **ClaudeProvider:** Interact with Anthropic's Claude models. System messages are lifted into Anthropic's top-level `system` parameter automatically, so the same message array works across all three providers.
     - **Configurable Provider Selection:** Switch between providers via configuration
     - **Unified Interface:** Same API for both providers with automatic model selection
 
@@ -83,6 +84,7 @@ php artisan make:crud Post --fields="title:string:required,body:text:nullable,pr
 | `--searchable=` | Comma-separated fields to enable search on |
 | `--sortable=` | Comma-separated fields to allow sorting on (defaults to the declared fields) |
 | `--per-page=` | Default items per page (defaults to 15) |
+| `--max-per-page=` | Maximum items per page a request may ask for (defaults to 100) |
 | `--register-routes` | Append the `apiResource` route to `routes/api.php` |
 | `--migrate` | Run `php artisan migrate` after generating |
 | `--force` | Overwrite existing files |
