@@ -5,6 +5,26 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.7] - 2026-11-22
+
+### Fixed
+
+- The default OpenAI and Gemini models had been shut down by their vendors: `gpt-3.5-turbo` on October 23, 2026 and `gemini-2.0-flash` on June 1, 2026. Anyone passing `config('lara-util-x.<provider>.default_model')`, the documented pattern, got an error on every call. They now default to the vendor-listed replacements, `gpt-5.6-terra` and `gemini-3.6-flash`.
+- The Gemini provider sent system messages with a `system` role, which the API rejects because content roles must be `user` or `model`. System messages are now sent as `systemInstruction`, matching the Claude fix in 1.5.4.
+- Gemini `jsonMode` did nothing; both branches built identical parts. It now sets `responseMimeType` to `application/json`.
+- The Gemini API key was sent in the URL query string, where it reaches proxy logs and any error that echoes the URL. It is now sent in the `x-goog-api-key` header.
+- The OpenAI provider sent `max_tokens`, which reasoning models, including the new GPT-5 family default, reject. It now sends `max_completion_tokens`.
+- The Claude provider only read the first content block, which is not always the text. Every text block is now collected.
+- All three providers retried every failure, including errors that cannot succeed on retry such as a bad key or an unknown model, so a retired model took several seconds of retries to report. Only rate limits, timeouts, and server errors are retried now.
+- A missing model now produces an error naming the env var to change, such as `GEMINI_DEFAULT_MODEL`, rather than the bare API message.
+
+### Added
+
+- `--field` option on `make:crud`, repeatable, taking one definition per flag. Unlike `--fields` it is never split on commas, so rules such as `unique:users,email` and `in:admin,member` can finally be expressed. This also makes the 1.5.6 where-clause fix reachable from the command line.
+- `LLMRequestException`, carrying the HTTP status and whether the failure is retryable. It extends `RuntimeException`, so existing `catch` blocks keep working.
+- Test coverage for the OpenAI and Gemini providers, which had none.
+- CI now also runs weekly, so dependency drift surfaces when nothing is being pushed.
+
 ## [1.5.6] - 2026-11-22
 
 ### Fixed
@@ -15,7 +35,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Known limitation
 
-- `--fields` separates fields with commas, so a rule that itself contains a comma, such as `unique:users,email` or `in:a,b`, cannot be expressed through it. This is planned for 1.5.7.
+- `--fields` separates fields with commas, so a rule that itself contains a comma, such as `unique:users,email` or `in:a,b`, cannot be expressed through it. Addressed by `--field` in 1.5.7.
 
 ## [1.5.5] - 2026-09-17
 
@@ -205,6 +225,7 @@ with production data.
 
 - Committed vendor directory.
 
+[1.5.7]: https://github.com/omarchouman/lara-util-x/compare/1.5.6...1.5.7
 [1.5.6]: https://github.com/omarchouman/lara-util-x/compare/1.5.5...1.5.6
 [1.5.5]: https://github.com/omarchouman/lara-util-x/compare/1.5.4...1.5.5
 [1.5.4]: https://github.com/omarchouman/lara-util-x/compare/1.5.3...1.5.4

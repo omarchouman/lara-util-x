@@ -10,6 +10,7 @@ class MakeCrud extends Command
     protected $signature = 'make:crud
         {name : The model name (e.g. Post, UserProfile)}
         {--fields= : Comma-separated fields as column:type:validation (e.g. title:string:required,body:text:nullable,price:decimal:required|min:0)}
+        {--field=* : A single field definition, repeatable. Use this for rules containing commas (e.g. --field="email:string:required|unique:users,email")}
         {--belongs-to=* : BelongsTo relationship (e.g. --belongs-to=User)}
         {--has-many=* : HasMany relationship (e.g. --has-many=Comment)}
         {--has-one=* : HasOne relationship (e.g. --has-one=Profile)}
@@ -35,7 +36,10 @@ class MakeCrud extends Command
         $this->modelName = Str::studly($this->argument('name'));
         $this->modelVar  = Str::camel($this->modelName);
         $this->tableName = Str::snake(Str::plural($this->modelName));
-        $this->fields    = $this->parseFields($this->option('fields') ?? '');
+        $this->fields    = array_merge(
+            $this->parseFields($this->option('fields') ?? ''),
+            array_map(fn ($definition) => $this->parseFieldDefinition($definition), array_filter((array) $this->option('field'), 'strlen'))
+        );
 
         $this->components->info("Generating CRUD for [{$this->modelName}]...");
 
@@ -130,20 +134,30 @@ class MakeCrud extends Command
 
         $fields = [];
         foreach (explode(',', $raw) as $def) {
-            $def = trim($def);
-            if ($def === '') {
+            if (trim($def) === '') {
                 continue;
             }
-            // Limit to 3 splits so validation rules containing ':' are preserved
-            $parts    = explode(':', $def, 3);
-            $fields[] = [
-                'name'  => trim($parts[0]),
-                'type'  => trim($parts[1] ?? 'string'),
-                'rules' => trim($parts[2] ?? ''),
-            ];
+
+            $fields[] = $this->parseFieldDefinition($def);
         }
 
         return $fields;
+    }
+
+    /**
+     * Parse one column:type:validation definition. Called directly for each
+     * --field, which is never split on commas, so its rules may contain them.
+     */
+    private function parseFieldDefinition(string $definition): array
+    {
+        // Limit to 3 splits so validation rules containing ':' are preserved
+        $parts = explode(':', trim($definition), 3);
+
+        return [
+            'name'  => trim($parts[0]),
+            'type'  => trim($parts[1] ?? 'string'),
+            'rules' => trim($parts[2] ?? ''),
+        ];
     }
 
     // -----------------------------------------------------------------------

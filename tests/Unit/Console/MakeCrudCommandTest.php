@@ -783,6 +783,63 @@ class MakeCrudCommandTest extends TestCase
         $this->track(app_path('Http/Controllers/ProductController.php'));
     }
 
+    // -----------------------------------------------------------------------
+    // Repeatable --field (1.5.7)
+    // -----------------------------------------------------------------------
+
+    public function test_field_option_accepts_rules_containing_commas()
+    {
+        $this->artisan('make:crud', [
+            'name'    => 'Product',
+            '--field' => ['email:string:required|unique:users,email,NULL,id,tenant_id,7|max:255'],
+        ])->assertExitCode(0);
+
+        $content = file_get_contents($this->track(app_path('Http/Controllers/ProductController.php')));
+
+        // --fields would have split this into several bogus fields.
+        $this->assertStringContainsString(
+            "'email' => 'required|unique:users,email,' . \$product->id . ',id,tenant_id,7|max:255',",
+            $content
+        );
+
+        $this->track(app_path('Models/Product.php'));
+        $this->trackMigration('products');
+    }
+
+    public function test_field_option_does_not_create_bogus_columns()
+    {
+        $this->artisan('make:crud', [
+            'name'    => 'Product',
+            '--field' => ['role:string:required|in:admin,member'],
+        ])->assertExitCode(0);
+
+        $content = file_get_contents($this->trackMigration('products'));
+
+        $this->assertStringContainsString("\$table->string('role');", $content);
+        $this->assertStringNotContainsString("'member'", $content);
+
+        $this->track(app_path('Models/Product.php'));
+        $this->track(app_path('Http/Controllers/ProductController.php'));
+    }
+
+    public function test_field_and_fields_can_be_combined()
+    {
+        $this->artisan('make:crud', [
+            'name'     => 'Product',
+            '--fields' => 'title:string:required,body:text:nullable',
+            '--field'  => ['sku:string:required|unique:products,sku', 'price:decimal:required'],
+        ])->assertExitCode(0);
+
+        $content = file_get_contents($this->trackMigration('products'));
+
+        foreach (["string('title')", "text('body')", "string('sku')", "decimal('price'"] as $column) {
+            $this->assertStringContainsString($column, $content);
+        }
+
+        $this->track(app_path('Models/Product.php'));
+        $this->track(app_path('Http/Controllers/ProductController.php'));
+    }
+
     public function test_controller_index_uses_custom_per_page()
     {
         $this->artisan('make:crud', [

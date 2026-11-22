@@ -5,6 +5,7 @@ namespace LaraUtilX\LLMProviders\Gemini;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use LaraUtilX\LLMProviders\Contracts\LLMProviderInterface;
+use LaraUtilX\LLMProviders\Exceptions\LLMRequestException;
 use LaraUtilX\LLMProviders\Gemini\Responses\GeminiResponse;
 
 class GeminiProvider implements LLMProviderInterface
@@ -40,40 +41,26 @@ class GeminiProvider implements LLMProviderInterface
         ?bool $jsonMode = false,
         bool $fullResponse = false
     ): GeminiResponse {
-        $endpoint = $this->baseUrl . '/models/' . $modelName . ':generateContent?key=' . urlencode($this->apiKey);
+        // The key travels in a header rather than the query string, where it
+        // would end up in proxy logs and in any exception that echoes the URL.
+        $endpoint = $this->baseUrl . '/models/' . $modelName . ':generateContent';
 
-        $contents = $this->mapMessagesToGeminiContents($messages, $jsonMode === true);
+        $payload = $this->buildPayload($messages, $temperature, $maxTokens, $stop, $topP, $jsonMode === true);
 
-        $generationConfig = [];
-        if ($temperature !== null) {
-            $generationConfig['temperature'] = $temperature;
-        }
-        if ($maxTokens !== null) {
-            $generationConfig['maxOutputTokens'] = $maxTokens;
-        }
-        if ($topP !== null) {
-            $generationConfig['topP'] = $topP;
-        }
-        if ($stop !== null) {
-            $generationConfig['stopSequences'] = $stop;
-        }
-
-        $payload = [
-            'contents' => $contents,
-        ];
-        if (!empty($generationConfig)) {
-            $payload['generationConfig'] = $generationConfig;
-        }
-
-        return $this->executeWithRetry(function () use ($endpoint, $payload, $fullResponse, $jsonMode) {
+        return $this->executeWithRetry(function () use ($endpoint, $payload, $fullResponse, $modelName) {
             $response = Http::withHeaders([
-                'Content-Type' => 'application/json'
+                'Content-Type' => 'application/json',
+                'x-goog-api-key' => $this->apiKey,
             ])->post($endpoint, $payload);
 
             if (!$response->successful()) {
-                $body = $response->json();
-                $message = $body['error']['message'] ?? 'Gemini API request failed';
-                throw new \RuntimeException($message);
+                throw LLMRequestException::fromResponse(
+                    'Gemini',
+                    $response->status(),
+                    $response->json('error.message'),
+                    $modelName,
+                    'GEMINI_DEFAULT_MODEL'
+                );
             }
 
             $data = $response->json();
@@ -89,44 +76,78 @@ class GeminiProvider implements LLMProviderInterface
 
             return new GeminiResponse(
                 content: $text,
-                model: $data['model'] ?? null,
+                model: $data['modelVersion'] ?? $data['model'] ?? null,
                 usage: (object) ($data['usageMetadata'] ?? []),
                 rawResponse: $fullResponse ? (object) $data : null
             );
         });
     }
 
-    private function mapMessagesToGeminiContents(array $messages, bool $jsonMode): array
+    private function buildPayload(
+        array $messages,
+        ?float $temperature,
+        ?int $maxTokens,
+        ?array $stop,
+        ?float $topP,
+        bool $jsonMode
+    ): array {
+        [$system, $contents] = $this->mapMessagesToGeminiContents($messages);
+
+        $payload = ['contents' => $contents];
+
+        if ($system !== null) {
+            $payload['systemInstruction'] = ['parts' => [['text' => $system]]];
+        }
+
+        $generationConfig = array_filter([
+            'temperature' => $temperature,
+            'maxOutputTokens' => $maxTokens,
+            'topP' => $topP,
+            'stopSequences' => $stop,
+        ], fn ($value) => $value !== null);
+
+        if ($jsonMode) {
+            $generationConfig['responseMimeType'] = 'application/json';
+        }
+
+        if ($generationConfig !== []) {
+            $payload['generationConfig'] = $generationConfig;
+        }
+
+        return $payload;
+    }
+
+    /**
+     * Gemini only accepts 'user' and 'model' as content roles and takes the
+     * system prompt as a top-level systemInstruction, so OpenAI-style system
+     * messages are lifted out and assistant turns are renamed.
+     *
+     * @return array{0: string|null, 1: array}
+     */
+    private function mapMessagesToGeminiContents(array $messages): array
     {
+        $system = [];
         $contents = [];
+
         foreach ($messages as $message) {
             $role = $message['role'] ?? 'user';
             $text = $message['content'] ?? '';
 
-            // Gemini uses 'user' and 'model' roles
-            if ($role === 'assistant') {
-                $role = 'model';
-            }
-
-            $parts = [
-                ['text' => $text]
-            ];
-
-            if ($jsonMode === true) {
-                $parts = [
-                    [
-                        'text' => $text
-                    ]
-                ];
+            if ($role === 'system') {
+                $system[] = $text;
+                continue;
             }
 
             $contents[] = [
-                'role' => $role,
-                'parts' => $parts
+                'role' => $role === 'assistant' ? 'model' : 'user',
+                'parts' => [['text' => $text]],
             ];
         }
 
-        return $contents;
+        return [
+            $system === [] ? null : implode("\n\n", array_filter($system)),
+            $contents,
+        ];
     }
 
     /**
@@ -146,6 +167,10 @@ class GeminiProvider implements LLMProviderInterface
                 $lastException = $e;
                 $attempt++;
 
+                if ($e instanceof LLMRequestException && ! $e->isRetryable()) {
+                    break;
+                }
+
                 if ($attempt < $this->maxRetries) {
                     Log::warning("Gemini API request failed, retrying...", [
                         'attempt' => $attempt,
@@ -156,7 +181,7 @@ class GeminiProvider implements LLMProviderInterface
             }
         }
 
-        Log::error("Gemini API request failed after {$this->maxRetries} attempts", [
+        Log::error("Gemini API request failed after {$attempt} attempt(s)", [
             'error' => $lastException?->getMessage()
         ]);
 

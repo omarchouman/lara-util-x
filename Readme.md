@@ -6,7 +6,7 @@
 
 LaraUtilX is a comprehensive Laravel package designed to supercharge your development experience by providing a suite of utility classes, helpful traits, middleware, and more. Whether you're a seasoned Laravel developer or just getting started, LaraUtilX offers a collection of tools to streamline common tasks and enhance the functionality of your Laravel applications.
 
-**Version:** 1.5.6  
+**Version:** 1.5.7  
 **Laravel Support:** Laravel 10, 11, 12, 13  
 **PHP Support:** PHP 8.1+  
 **License:** MIT
@@ -76,6 +76,7 @@ php artisan make:crud Post --fields="title:string:required,body:text:nullable,pr
 | Option | Description |
 |---|---|
 | `--fields=` | Comma-separated `column:type:validation` definitions |
+| `--field=` | One `column:type:validation` definition, repeatable. Use it for rules containing commas |
 | `--belongs-to=` | Add a BelongsTo relationship (repeatable) |
 | `--has-many=` | Add a HasMany relationship (repeatable) |
 | `--has-one=` | Add a HasOne relationship (repeatable) |
@@ -90,6 +91,15 @@ php artisan make:crud Post --fields="title:string:required,body:text:nullable,pr
 | `--force` | Overwrite existing files |
 
 Existing files are never overwritten unless you pass `--force`; the command warns and skips instead.
+
+`--fields` separates fields with commas, so a rule that itself contains one, such as `unique:users,email` or `in:admin,member`, has to go through `--field` instead. The two can be combined:
+
+```bash
+php artisan make:crud User \
+    --fields="name:string:required" \
+    --field="email:string:required|unique:users,email,NULL,id,tenant_id,7" \
+    --field="role:enum(admin|member):required|in:admin,member"
+```
 
 Enum columns take their allowed values in the type, separated by pipes because commas already separate fields:
 

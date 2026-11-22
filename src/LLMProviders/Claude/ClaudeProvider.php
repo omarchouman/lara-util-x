@@ -5,6 +5,7 @@ namespace LaraUtilX\LLMProviders\Claude;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use LaraUtilX\LLMProviders\Contracts\LLMProviderInterface;
+use LaraUtilX\LLMProviders\Exceptions\LLMRequestException;
 use LaraUtilX\LLMProviders\Claude\Responses\ClaudeResponse;
 
 class ClaudeProvider implements LLMProviderInterface
@@ -52,7 +53,7 @@ class ClaudeProvider implements LLMProviderInterface
             jsonMode: $jsonMode
         );
 
-        return $this->executeWithRetry(function () use ($endpoint, $payload, $fullResponse) {
+        return $this->executeWithRetry(function () use ($endpoint, $payload, $fullResponse, $modelName) {
             $response = Http::withHeaders([
                 'Content-Type' => 'application/json',
                 'x-api-key' => $this->apiKey,
@@ -60,16 +61,24 @@ class ClaudeProvider implements LLMProviderInterface
             ])->post($endpoint, $payload);
 
             if (!$response->successful()) {
-                $body = $response->json();
-                $message = $body['error']['message'] ?? 'Claude API request failed';
-                throw new \RuntimeException($message);
+                throw LLMRequestException::fromResponse(
+                    'Claude',
+                    $response->status(),
+                    $response->json('error.message'),
+                    $modelName,
+                    'CLAUDE_DEFAULT_MODEL'
+                );
             }
 
             $data = $response->json();
 
+            // A response can hold several blocks, and the text is not always
+            // the first one, so collect every text block rather than [0].
             $content = '';
-            if (isset($data['content'][0]['text'])) {
-                $content = $data['content'][0]['text'];
+            foreach ($data['content'] ?? [] as $block) {
+                if (($block['type'] ?? null) === 'text') {
+                    $content .= $block['text'] ?? '';
+                }
             }
 
             return new ClaudeResponse(
@@ -165,6 +174,10 @@ class ClaudeProvider implements LLMProviderInterface
                 $lastException = $e;
                 $attempt++;
 
+                if ($e instanceof LLMRequestException && ! $e->isRetryable()) {
+                    break;
+                }
+
                 if ($attempt < $this->maxRetries) {
                     Log::warning("Claude API request failed, retrying...", [
                         'attempt' => $attempt,
@@ -175,7 +188,7 @@ class ClaudeProvider implements LLMProviderInterface
             }
         }
 
-        Log::error("Claude API request failed after {$this->maxRetries} attempts", [
+        Log::error("Claude API request failed after {$attempt} attempt(s)", [
             'error' => $lastException?->getMessage()
         ]);
 

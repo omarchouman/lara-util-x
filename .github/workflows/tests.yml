@@ -5,6 +5,9 @@ on:
     branches: [master]
   pull_request:
     branches: [master]
+  # Weekly, so dependency drift surfaces even when nothing is being pushed.
+  schedule:
+    - cron: '0 6 * * 1'
 
 jobs:
   test:
