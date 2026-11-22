@@ -109,4 +109,63 @@ class ClaudeProviderTest extends TestCase
         $this->assertNotEquals('claude-3-5-sonnet-20241022', $default);
         $this->assertNotEmpty($default);
     }
+
+    // -----------------------------------------------------------------------
+    // Responses and errors (1.5.7)
+    // -----------------------------------------------------------------------
+
+    public function test_every_text_block_is_collected()
+    {
+        Http::fake(['*' => Http::response([
+            'content' => [
+                ['type' => 'thinking', 'thinking' => 'internal'],
+                ['type' => 'text', 'text' => 'hel'],
+                ['type' => 'text', 'text' => 'lo'],
+            ],
+            'model' => 'claude-sonnet-5',
+        ], 200)]);
+
+        $response = $this->provider()->generateResponse('claude-sonnet-5', [['role' => 'user', 'content' => 'Hi']]);
+
+        // Only the first block was read, which is not always the text.
+        $this->assertEquals('hello', $response->content);
+    }
+
+    public function test_missing_model_names_the_env_var_to_change()
+    {
+        Http::fake(['*' => Http::response(['error' => ['message' => 'model: claude-old']], 404)]);
+
+        try {
+            $this->provider()->generateResponse('claude-old', [['role' => 'user', 'content' => 'Hi']]);
+            $this->fail('Expected an exception');
+        } catch (\LaraUtilX\LLMProviders\Exceptions\LLMRequestException $e) {
+            $this->assertStringContainsString('CLAUDE_DEFAULT_MODEL', $e->getMessage());
+        }
+    }
+
+    public function test_client_errors_are_not_retried()
+    {
+        Http::fake(['*' => Http::response(['error' => ['message' => 'invalid x-api-key']], 401)]);
+
+        try {
+            (new ClaudeProvider(apiKey: 'bad', maxRetries: 3, retryDelay: 0))
+                ->generateResponse('claude-sonnet-5', [['role' => 'user', 'content' => 'Hi']]);
+        } catch (\RuntimeException) {
+        }
+
+        Http::assertSentCount(1);
+    }
+
+    public function test_rate_limits_are_retried()
+    {
+        Http::fake(['*' => Http::response(['error' => ['message' => 'rate limited']], 429)]);
+
+        try {
+            (new ClaudeProvider(apiKey: 'k', maxRetries: 3, retryDelay: 0))
+                ->generateResponse('claude-sonnet-5', [['role' => 'user', 'content' => 'Hi']]);
+        } catch (\RuntimeException) {
+        }
+
+        Http::assertSentCount(3);
+    }
 }

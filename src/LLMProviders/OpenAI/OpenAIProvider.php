@@ -92,7 +92,9 @@ class OpenAIProvider implements LLMProviderInterface
 
         $optionalParameters = [
             'temperature' => $temperature,
-            'max_tokens' => $maxTokens,
+            // Reasoning models, including the GPT-5 family, reject max_tokens.
+            // max_completion_tokens is accepted by every current chat model.
+            'max_completion_tokens' => $maxTokens,
             'stop' => $stop,
             'top_p' => $topP,
             'frequency_penalty' => $frequencyPenalty,
@@ -152,7 +154,11 @@ class OpenAIProvider implements LLMProviderInterface
             } catch (ErrorException $e) {
                 $lastException = $e;
                 $attempt++;
-                
+
+                if (! $this->isRetryable($e)) {
+                    break;
+                }
+
                 if ($attempt < $this->maxRetries) {
                     Log::warning("OpenAI API request failed, retrying...", [
                         'attempt' => $attempt,
@@ -163,10 +169,37 @@ class OpenAIProvider implements LLMProviderInterface
             }
         }
 
-        Log::error("OpenAI API request failed after {$this->maxRetries} attempts", [
-            'error' => $lastException?->getMessage()
+        Log::error("OpenAI API request failed after {$attempt} attempt(s)", [
+            'error' => $lastException?->getMessage(),
+            'hint' => $this->statusOf($lastException) === 404
+                ? 'The model may have been retired; set OPENAI_DEFAULT_MODEL to a current model.'
+                : null,
         ]);
 
         throw $lastException;
+    }
+
+    /**
+     * Rate limits, timeouts and server errors can succeed on a later attempt;
+     * other client errors, such as a bad key or an unknown model, cannot.
+     */
+    private function isRetryable(ErrorException $e): bool
+    {
+        $status = $this->statusOf($e);
+
+        if ($status === null) {
+            return true;
+        }
+
+        return $status === 408 || $status === 429 || $status >= 500;
+    }
+
+    /**
+     * getStatusCode() is not available in the older client releases that
+     * PHP 8.1 is limited to.
+     */
+    private function statusOf(?ErrorException $e): ?int
+    {
+        return $e !== null && method_exists($e, 'getStatusCode') ? $e->getStatusCode() : null;
     }
 } 
