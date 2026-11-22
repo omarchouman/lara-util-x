@@ -203,6 +203,10 @@ class MakeCrud extends Command
         $nullable = str_contains($rules, 'nullable') ? '->nullable()' : '';
         $unique   = (str_contains($rules, 'unique') && ! str_contains($rules, 'unique:')) ? '->unique()' : '';
 
+        if (str_starts_with($type, 'enum')) {
+            return $this->enumColumnLine($name, $type, $nullable);
+        }
+
         return match (true) {
             in_array($type, ['string', 'varchar'])                     => "\$table->string('{$name}'){$nullable}{$unique};",
             in_array($type, ['text'])                                  => "\$table->text('{$name}'){$nullable};",
@@ -222,9 +226,48 @@ class MakeCrud extends Command
             in_array($type, ['timestamp'])                             => "\$table->timestamp('{$name}'){$nullable};",
             in_array($type, ['json'])                                  => "\$table->json('{$name}'){$nullable};",
             in_array($type, ['uuid'])                                  => "\$table->uuid('{$name}'){$nullable};",
-            in_array($type, ['enum'])                                  => "\$table->enum('{$name}', []){$nullable};",
             default                                                    => "\$table->string('{$name}'){$nullable}{$unique};",
         };
+    }
+
+    /**
+     * Build an enum column from an `enum(draft|published)` type.
+     *
+     * Values are separated by a pipe because commas already separate fields in
+     * --fields. An enum with no values produces a column no database will
+     * accept, so that falls back to a string rather than emitting a migration
+     * that cannot run.
+     */
+    private function enumColumnLine(string $name, string $type, string $nullable): string
+    {
+        $values = $this->enumValues($type);
+
+        if ($values === []) {
+            $this->components->warn(
+                "Field [{$name}] is an enum with no values. Generating a string column instead. "
+                . "Declare values as {$name}:enum(draft|published) to get an enum."
+            );
+
+            return "\$table->string('{$name}'){$nullable};";
+        }
+
+        $list = "'" . implode("', '", $values) . "'";
+
+        return "\$table->enum('{$name}', [{$list}]){$nullable};";
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function enumValues(string $type): array
+    {
+        if (! preg_match('/^enum\s*\((.*)\)$/i', trim($type), $matches)) {
+            return [];
+        }
+
+        $values = array_map('trim', explode('|', $matches[1]));
+
+        return array_values(array_filter($values, fn ($value) => $value !== ''));
     }
 
     private function buildForeignKeys(): string
@@ -535,27 +578,49 @@ PHP;
             return "            '{$field}' => '{$rule}',";
         }
 
-        // Isolate the unique segment and append model ID so existing records pass validation
-        $parts       = explode('|', $rule);
-        $nonUnique   = [];
-        $uniqueTable = '';
-        $uniqueCol   = $field;
+        // Write the model ID into the ignore-id slot so the record being updated
+        // passes its own unique check. Only that slot is touched: rebuilding the
+        // segment from the table and column alone would discard any additional
+        // where clauses, turning per-tenant uniqueness into global uniqueness,
+        // and moving the segment would reorder the rule string.
+        $placeholder = "\x00id\x00";
+        $segments    = explode('|', $rule);
 
-        foreach ($parts as $part) {
-            if (str_starts_with($part, 'unique:')) {
-                $spec        = substr($part, 7);
-                $specParts   = explode(',', $spec);
-                $uniqueTable = $specParts[0];
-                $uniqueCol   = $specParts[1] ?? $field;
-            } else {
-                $nonUnique[] = $part;
+        foreach ($segments as $index => $segment) {
+            if (! str_starts_with($segment, 'unique:')) {
+                continue;
+            }
+
+            $parts = explode(',', substr($segment, strlen('unique:')));
+            $parts[1] ??= $field;
+            $parts[2] = $placeholder;
+
+            $segments[$index] = 'unique:' . implode(',', $parts);
+        }
+
+        return "            '{$field}' => " . $this->renderRuleExpression(implode('|', $segments), $placeholder) . ',';
+    }
+
+    /**
+     * Turn a rule string carrying ID placeholders into a PHP concatenation.
+     */
+    private function renderRuleExpression(string $rule, string $placeholder): string
+    {
+        $idExpression = "\${$this->modelVar}->id";
+        $pieces       = explode($placeholder, $rule);
+        $expression   = [];
+
+        foreach ($pieces as $index => $piece) {
+            if ($piece !== '') {
+                $expression[] = "'" . $piece . "'";
+            }
+
+            if ($index < count($pieces) - 1) {
+                $expression[] = $idExpression;
             }
         }
 
-        $base   = implode('|', $nonUnique);
-        $prefix = $base ? "{$base}|unique:{$uniqueTable},{$uniqueCol}," : "unique:{$uniqueTable},{$uniqueCol},";
-
-        return "            '{$field}' => '{$prefix}' . \${$this->modelVar}->id,";
+        return implode(' . ', $expression);
     }
 
     private function collectValidationRules(bool $isUpdate = false): array

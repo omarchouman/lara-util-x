@@ -631,6 +631,158 @@ class MakeCrudCommandTest extends TestCase
         return '';
     }
 
+    // -----------------------------------------------------------------------
+    // Unique rules on update (1.5.6)
+    // -----------------------------------------------------------------------
+
+    /**
+     * --fields splits on commas, so a rule containing one cannot be expressed
+     * through the CLI. These exercise the rule builder directly.
+     */
+    private function updateRuleFor(string $field, string $rule): string
+    {
+        $class = new \ReflectionClass(\LaraUtilX\Console\Commands\MakeCrud::class);
+        $command = $class->newInstanceWithoutConstructor();
+
+        $modelVar = $class->getProperty('modelVar');
+        $modelVar->setAccessible(true);
+        $modelVar->setValue($command, 'product');
+
+        $method = $class->getMethod('buildUpdateRuleLine');
+        $method->setAccessible(true);
+
+        return trim($method->invoke($command, $field, $rule));
+    }
+
+    public function test_update_unique_rule_keeps_the_rule_order()
+    {
+        // The unique segment used to be moved to the end of the rule string.
+        $this->assertEquals(
+            "'slug' => 'required|unique:products,slug,' . \$product->id . '|max:20',",
+            $this->updateRuleFor('slug', 'required|unique:products,slug|max:20')
+        );
+    }
+
+    public function test_update_unique_rule_preserves_additional_where_clauses()
+    {
+        // Rebuilding from table and column alone dropped the tenant scope.
+        $this->assertEquals(
+            "'email' => 'required|unique:users,email,' . \$product->id . ',id,tenant_id,7',",
+            $this->updateRuleFor('email', 'required|unique:users,email,NULL,id,tenant_id,7')
+        );
+    }
+
+    public function test_update_unique_rule_replaces_an_existing_ignore_id()
+    {
+        $this->assertEquals(
+            "'code' => 'required|unique:products,code,' . \$product->id . '|max:5',",
+            $this->updateRuleFor('code', 'required|unique:products,code,99|max:5')
+        );
+    }
+
+    public function test_update_unique_rule_defaults_the_column_to_the_field()
+    {
+        $this->assertEquals(
+            "'name' => 'unique:products,name,' . \$product->id,",
+            $this->updateRuleFor('name', 'unique:products')
+        );
+    }
+
+    public function test_update_leaves_non_unique_rules_untouched()
+    {
+        $this->assertEquals(
+            "'title' => 'required|max:20',",
+            $this->updateRuleFor('title', 'required|max:20')
+        );
+    }
+
+    public function test_generated_update_rule_appends_the_model_id()
+    {
+        $this->artisan('make:crud', [
+            'name'     => 'Product',
+            '--fields' => 'slug:string:required|unique:products',
+        ])->assertExitCode(0);
+
+        $content = file_get_contents($this->track(app_path('Http/Controllers/ProductController.php')));
+
+        $this->assertStringContainsString(
+            "'slug' => 'required|unique:products,slug,' . \$product->id,",
+            $content
+        );
+
+        $this->track(app_path('Models/Product.php'));
+        $this->trackMigration('products');
+    }
+
+    // -----------------------------------------------------------------------
+    // Enum columns (1.5.6)
+    // -----------------------------------------------------------------------
+
+    public function test_enum_field_generates_its_allowed_values()
+    {
+        $this->artisan('make:crud', [
+            'name'     => 'Product',
+            '--fields' => 'status:enum(draft|published|archived):required',
+        ])->assertExitCode(0);
+
+        $content = file_get_contents($this->trackMigration('products'));
+
+        $this->assertStringContainsString(
+            "\$table->enum('status', ['draft', 'published', 'archived']);",
+            $content
+        );
+
+        $this->track(app_path('Models/Product.php'));
+        $this->track(app_path('Http/Controllers/ProductController.php'));
+    }
+
+    public function test_enum_field_honours_nullable()
+    {
+        $this->artisan('make:crud', [
+            'name'     => 'Product',
+            '--fields' => 'status:enum(a|b):nullable',
+        ])->assertExitCode(0);
+
+        $content = file_get_contents($this->trackMigration('products'));
+
+        $this->assertStringContainsString("\$table->enum('status', ['a', 'b'])->nullable();", $content);
+
+        $this->track(app_path('Models/Product.php'));
+        $this->track(app_path('Http/Controllers/ProductController.php'));
+    }
+
+    public function test_enum_without_values_falls_back_to_a_usable_column()
+    {
+        $this->artisan('make:crud', [
+            'name'     => 'Product',
+            '--fields' => 'status:enum:required',
+        ])->assertExitCode(0);
+
+        $content = file_get_contents($this->trackMigration('products'));
+
+        // An empty enum is a column no database accepts.
+        $this->assertStringNotContainsString("enum('status', [])", $content);
+        $this->assertStringContainsString("\$table->string('status');", $content);
+
+        $this->track(app_path('Models/Product.php'));
+        $this->track(app_path('Http/Controllers/ProductController.php'));
+    }
+
+    public function test_enum_values_are_trimmed()
+    {
+        $this->artisan('make:crud', [
+            'name'     => 'Product',
+            '--fields' => 'status:enum( draft | published ):required',
+        ])->assertExitCode(0);
+
+        $content = file_get_contents($this->trackMigration('products'));
+
+        $this->assertStringContainsString("\$table->enum('status', ['draft', 'published']);", $content);
+
+        $this->track(app_path('Models/Product.php'));
+        $this->track(app_path('Http/Controllers/ProductController.php'));
+    }
+
     public function test_controller_index_uses_custom_per_page()
     {
         $this->artisan('make:crud', [
