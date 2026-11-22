@@ -6,7 +6,7 @@
 
 LaraUtilX is a comprehensive Laravel package designed to supercharge your development experience by providing a suite of utility classes, helpful traits, middleware, and more. Whether you're a seasoned Laravel developer or just getting started, LaraUtilX offers a collection of tools to streamline common tasks and enhance the functionality of your Laravel applications.
 
-**Version:** 1.5.5  
+**Version:** 1.5.6  
 **Laravel Support:** Laravel 10, 11, 12, 13  
 **PHP Support:** PHP 8.1+  
 **License:** MIT
@@ -90,6 +90,14 @@ php artisan make:crud Post --fields="title:string:required,body:text:nullable,pr
 | `--force` | Overwrite existing files |
 
 Existing files are never overwritten unless you pass `--force`; the command warns and skips instead.
+
+Enum columns take their allowed values in the type, separated by pipes because commas already separate fields:
+
+```bash
+php artisan make:crud Post --fields="status:enum(draft|published|archived):required"
+```
+
+An `enum` with no values falls back to a string column with a warning, since a database will not accept an enum without them.
 
 ```bash
 php artisan make:crud Post \
