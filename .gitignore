@@ -18,3 +18,5 @@ yarn-error.log
 /.idea
 /.vscode
 composer.lock
+# macOS Finder metadata
+.DS_Store
